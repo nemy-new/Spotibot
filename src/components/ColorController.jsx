@@ -13,7 +13,7 @@ const useDebounce = (effect, delay, deps) => {
     }, [...deps || [], delay]);
 };
 
-export function ColorController({ devices, selectedDeviceIds, onToggleDevice, token, secret, spotifyToken, spotifyClientId }) {
+export function ColorController({ devices, selectedDeviceIds, onToggleDevice, token, secret, spotifyToken, spotifyClientId, onOpenSettings }) {
     // Filter active devices based on selection
     const activeDevices = devices.filter(d => selectedDeviceIds.includes(d.deviceId));
 
@@ -75,9 +75,11 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             if (!silent) {
                 if (!spotifyClientId) {
                     alert("Please set Spotify Client ID in settings first.");
+                    onOpenSettings && onOpenSettings();
                     return;
                 }
                 const redirectUri = window.location.origin + window.location.pathname;
+                console.log("Debug: Redirecting to Spotify with URI:", redirectUri);
                 spotifyApi.login(spotifyClientId, redirectUri);
             }
             return;
@@ -378,9 +380,15 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     <h2 style={{ fontSize: '32px', margin: 0 }}>Spotify Sync</h2>
                                     <p style={{ opacity: 0.6, fontSize: '16px' }}>Connect to transform your space with music.</p>
                                 </div>
-                                <button onClick={() => syncWithSpotify()} className="btn-primary" style={{ background: '#1DB954', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(29, 185, 84, 0.3)' }}>
-                                    Connect Spotify Account
-                                </button>
+                                {spotifyClientId ? (
+                                    <button onClick={() => syncWithSpotify()} className="btn-primary" style={{ background: '#1DB954', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(29, 185, 84, 0.3)' }}>
+                                        Connect Spotify Account
+                                    </button>
+                                ) : (
+                                    <button onClick={onOpenSettings} className="btn-primary" style={{ background: '#555', padding: '16px 48px', fontSize: '18px', borderRadius: '100px' }}>
+                                        ⚠️ Set Client ID First
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

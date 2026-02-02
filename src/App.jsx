@@ -122,6 +122,7 @@ function App() {
                   secret={secret}
                   spotifyToken={spotifyToken}
                   spotifyClientId={spotifyClientId}
+                  onOpenSettings={() => setShowSettings(true)}
                 />
               </div>
             ) : (
