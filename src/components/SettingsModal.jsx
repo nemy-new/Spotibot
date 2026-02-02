@@ -17,10 +17,11 @@ export function SettingsModal({ onClose, onSave }) {
     }, []);
 
     const handleSave = () => {
+        const cleanClientId = spotifyClientId.trim();
         localStorage.setItem('switchbot_token', token);
         localStorage.setItem('switchbot_secret', secret);
-        localStorage.setItem('spotify_client_id', spotifyClientId);
-        onSave(token, secret, spotifyClientId, null);
+        localStorage.setItem('spotify_client_id', cleanClientId);
+        onSave(token, secret, cleanClientId, null);
         onClose();
     };
 
