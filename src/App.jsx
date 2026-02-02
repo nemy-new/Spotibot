@@ -23,10 +23,12 @@ function App() {
   // Handle Spotify Auth (Implicit Grant)
   useEffect(() => {
     const hash = spotifyApi.getTokenFromUrl();
+    console.log("Debug: Hash from URL:", hash);
     window.location.hash = "";
     const _token = hash.access_token;
 
     if (_token) {
+      console.log("Debug: Token found, setting state.");
       setSpotifyToken(_token);
       localStorage.setItem('spotify_access_token', _token);
       // Clean URL hash
