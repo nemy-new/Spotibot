@@ -4,9 +4,17 @@ const SCOPES = ["user-read-currently-playing", "user-read-playback-state", "user
 export const spotifyApi = {
     login: (clientId, redirectUri) => {
         // Implicit Grant Flow: response_type=token
-        const url = `${AUTH_ENDPOINT}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${SCOPES.join(
+        const url = `${AUTH_ENDPOINT}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${SCOPES.join(
             "%20"
         )}&response_type=token&show_dialog=true`;
+
+        console.log("--------- DEBUG SPOTIFY LOGIN ---------");
+        console.log("Client ID:", clientId);
+        console.log("Client ID Length:", clientId.length);
+        console.log("Redirect URI:", redirectUri);
+        console.log("Full URL:", url);
+        console.log("---------------------------------------");
+
         window.location.href = url;
     },
 
