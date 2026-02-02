@@ -1,37 +1,24 @@
 const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
-const TOKEN_ENDPOINT = "/api/spotify-token"; // Proxy to https://accounts.spotify.com/api/token
 const SCOPES = ["user-read-currently-playing", "user-read-playback-state", "user-modify-playback-state", "user-read-recently-played"];
 
 export const spotifyApi = {
     login: (clientId, redirectUri) => {
+        // Implicit Grant Flow: response_type=token
         const url = `${AUTH_ENDPOINT}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${SCOPES.join(
             "%20"
-        )}&response_type=code&show_dialog=true`;
+        )}&response_type=token&show_dialog=true`;
         window.location.href = url;
     },
 
-    getToken: async (code, clientId, clientSecret, redirectUri) => {
-        const params = new URLSearchParams();
-        params.append("grant_type", "authorization_code");
-        params.append("code", code);
-        params.append("redirect_uri", redirectUri);
-
-        const headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": "Basic " + btoa(clientId + ":" + clientSecret)
-        };
-
-        try {
-            const response = await fetch(TOKEN_ENDPOINT, {
-                method: "POST",
-                headers: headers,
-                body: params
-            });
-            return await response.json();
-        } catch (error) {
-            console.error("Spotify Token Error:", error);
-            throw error;
-        }
+    getTokenFromUrl: () => {
+        return window.location.hash
+            .substring(1)
+            .split("&")
+            .reduce((initial, item) => {
+                let parts = item.split("=");
+                initial[parts[0]] = decodeURIComponent(parts[1]);
+                return initial;
+            }, {});
     },
 
     getCurrentTrack: async (token) => {

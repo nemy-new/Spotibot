@@ -4,27 +4,23 @@ export function SettingsModal({ onClose, onSave }) {
     const [token, setToken] = useState('');
     const [secret, setSecret] = useState('');
     const [spotifyClientId, setSpotifyClientId] = useState('');
-    const [spotifyClientSecret, setSpotifyClientSecret] = useState('');
 
     useEffect(() => {
         // Load existing
         const storedToken = localStorage.getItem('switchbot_token');
         const storedSecret = localStorage.getItem('switchbot_secret');
         const storedSpotifyClientId = localStorage.getItem('spotify_client_id');
-        const storedSpotifyClientSecret = localStorage.getItem('spotify_client_secret');
 
         if (storedToken) setToken(storedToken);
         if (storedSecret) setSecret(storedSecret);
         if (storedSpotifyClientId) setSpotifyClientId(storedSpotifyClientId);
-        if (storedSpotifyClientSecret) setSpotifyClientSecret(storedSpotifyClientSecret);
     }, []);
 
     const handleSave = () => {
         localStorage.setItem('switchbot_token', token);
         localStorage.setItem('switchbot_secret', secret);
         localStorage.setItem('spotify_client_id', spotifyClientId);
-        localStorage.setItem('spotify_client_secret', spotifyClientSecret);
-        onSave(token, secret, spotifyClientId, spotifyClientSecret);
+        onSave(token, secret, spotifyClientId, null);
         onClose();
     };
 
@@ -62,16 +58,6 @@ export function SettingsModal({ onClose, onSave }) {
                         placeholder="For syncing music colors"
                         value={spotifyClientId}
                         onChange={(e) => setSpotifyClientId(e.target.value)}
-                    />
-                </div>
-
-                <div className="flex-col">
-                    <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Spotify Client Secret</label>
-                    <input
-                        type="password"
-                        placeholder="Required for token exchange"
-                        value={spotifyClientSecret}
-                        onChange={(e) => setSpotifyClientSecret(e.target.value)}
                     />
                 </div>
 

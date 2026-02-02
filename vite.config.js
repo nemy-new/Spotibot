@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/Spotibot/', // GitHub Pages repository name
   server: {
     host: '127.0.0.1',
     proxy: {
@@ -11,12 +12,8 @@ export default defineConfig({
         target: 'https://api.switch-bot.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/switchbot/, '')
-      },
-      '/api/spotify-token': {
-        target: 'https://accounts.spotify.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/spotify-token/, '/api/token')
       }
+      // Spotify proxy removed for Implicit Grant Flow
     }
   }
 })

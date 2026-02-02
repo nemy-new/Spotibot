@@ -20,31 +20,19 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Handle Spotify Auth Code Exchange
+  // Handle Spotify Auth (Implicit Grant)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+    const hash = spotifyApi.getTokenFromUrl();
+    window.location.hash = "";
+    const _token = hash.access_token;
 
-    if (code && spotifyClientId && spotifyClientSecret) {
-      exchangeToken(code);
+    if (_token) {
+      setSpotifyToken(_token);
+      localStorage.setItem('spotify_access_token', _token);
+      // Clean URL hash
+      window.history.pushState({}, document.title, window.location.pathname);
     }
-  }, [spotifyClientId, spotifyClientSecret]);
-
-  const exchangeToken = async (code) => {
-    try {
-      const data = await spotifyApi.getToken(code, spotifyClientId, spotifyClientSecret, 'http://127.0.0.1:5173/');
-      if (data.access_token) {
-        setSpotifyToken(data.access_token);
-        localStorage.setItem('spotify_access_token', data.access_token);
-        // Clear code from URL
-        window.history.replaceState({}, document.title, "/");
-      } else {
-        console.error("Token exchange failed", data);
-      }
-    } catch (e) {
-      console.error("Failed to exchange token", e);
-    }
-  };
+  }, []);
 
   // Fetch devices when token/secret changes
   useEffect(() => {

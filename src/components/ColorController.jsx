@@ -77,7 +77,8 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                     alert("Please set Spotify Client ID in settings first.");
                     return;
                 }
-                spotifyApi.login(spotifyClientId, 'http://127.0.0.1:5173/');
+                const redirectUri = window.location.origin + window.location.pathname;
+                spotifyApi.login(spotifyClientId, redirectUri);
             }
             return;
         }
