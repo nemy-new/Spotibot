@@ -20,21 +20,32 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Handle Spotify Auth (Implicit Grant)
+  // Handle Spotify Auth (PKCE Flow)
   useEffect(() => {
-    const hash = spotifyApi.getTokenFromUrl();
-    console.log("Debug: Hash from URL:", hash);
-    window.location.hash = "";
-    const _token = hash.access_token;
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
 
-    if (_token) {
-      console.log("Debug: Token found, setting state.");
-      setSpotifyToken(_token);
-      localStorage.setItem('spotify_access_token', _token);
-      // Clean URL hash
-      window.history.pushState({}, document.title, window.location.pathname);
+    if (code) {
+      console.log("Debug: Code found, exchanging for token...");
+      // For PKCE exchange we need the same redirect URI
+      const redirectUri = window.location.origin + window.location.pathname;
+
+      spotifyApi.getToken(code, spotifyClientId, redirectUri)
+        .then(accessToken => {
+          console.log("Debug: Token retrieved!");
+          setSpotifyToken(accessToken);
+          localStorage.setItem('spotify_access_token', accessToken);
+          // Output success message to console
+          console.info('Spotify Login Successful');
+          // Clean URL
+          window.history.pushState({}, document.title, window.location.pathname);
+        })
+        .catch(err => {
+          console.error("PKCE Token Exchange Failed:", err);
+          setError("Login failed: " + err.message);
+        });
     }
-  }, []);
+  }, [spotifyClientId]);
 
   // Fetch devices when token/secret changes
   useEffect(() => {

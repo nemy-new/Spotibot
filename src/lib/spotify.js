@@ -1,32 +1,69 @@
+import CryptoJS from 'crypto-js';
+
 const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
+const TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const SCOPES = ["user-read-currently-playing", "user-read-playback-state", "user-modify-playback-state", "user-read-recently-played"];
 
+const generateRandomString = (length) => {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < length; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+};
+
+const generateCodeChallenge = (codeVerifier) => {
+    return CryptoJS.SHA256(codeVerifier).toString(CryptoJS.enc.Base64)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+};
+
 export const spotifyApi = {
-    login: (clientId, redirectUri) => {
-        // Implicit Grant Flow: response_type=token
+    login: async (clientId, redirectUri) => {
+        const codeVerifier = generateRandomString(128);
+        const codeChallenge = generateCodeChallenge(codeVerifier);
+
+        localStorage.setItem('spotify_code_verifier', codeVerifier);
+
         const url = `${AUTH_ENDPOINT}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${SCOPES.join(
             "%20"
-        )}&response_type=token`;
+        )}&response_type=code&code_challenge_method=S256&code_challenge=${codeChallenge}&show_dialog=true`;
 
-        console.log("--------- DEBUG SPOTIFY LOGIN ---------");
-        console.log("Client ID:", clientId);
-        console.log("Client ID Length:", clientId.length);
-        console.log("Redirect URI:", redirectUri);
-        console.log("Full URL:", url);
-        console.log("---------------------------------------");
+        console.log("--------- PKCE LOGIN ---------");
+        console.log("Verifier:", codeVerifier);
+        console.log("Challenge:", codeChallenge);
+        console.log("URL:", url);
 
         window.location.href = url;
     },
 
-    getTokenFromUrl: () => {
-        return window.location.hash
-            .substring(1)
-            .split("&")
-            .reduce((initial, item) => {
-                let parts = item.split("=");
-                initial[parts[0]] = decodeURIComponent(parts[1]);
-                return initial;
-            }, {});
+    getToken: async (code, clientId, redirectUri) => {
+        const codeVerifier = localStorage.getItem('spotify_code_verifier');
+
+        const payload = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                client_id: clientId,
+                grant_type: 'authorization_code',
+                code,
+                redirect_uri: redirectUri,
+                code_verifier: codeVerifier,
+            }),
+        };
+
+        const response = await fetch(TOKEN_ENDPOINT, payload);
+        const data = await response.json();
+
+        if (data.access_token) {
+            return data.access_token;
+        } else {
+            throw new Error(data.error_description || "Failed to retrieve token");
+        }
     },
 
     getCurrentTrack: async (token) => {
