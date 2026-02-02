@@ -80,7 +80,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 }
                 const redirectUri = window.location.origin + window.location.pathname;
                 console.log("Debug: Redirecting to Spotify with URI:", redirectUri);
-                spotifyApi.login(spotifyClientId, redirectUri);
+                spotifyApi.login(spotifyClientId.trim(), redirectUri);
             }
             return;
         }
