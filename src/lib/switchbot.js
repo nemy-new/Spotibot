@@ -1,6 +1,6 @@
 import CryptoJS from 'crypto-js';
 
-const BASE_URL = '/api/switchbot/v1.1';
+const BASE_URL = 'https://api.switch-bot.com/v1.1';
 
 /**
  * Generate the Request Header as per SwitchBot API v1.1
