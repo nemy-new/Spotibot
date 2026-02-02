@@ -45,7 +45,7 @@ export function SettingsModal({ onClose, onSave }) {
                         onChange={(e) => setToken(e.target.value)}
                     />
                     <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        SwitchBot App > Profile > Preferences > Tap 'App Version' 10 times > Developer Options
+                        SwitchBot App → Profile → Preferences → Tap 'App Version' 10 times → Developer Options
                     </p>
                 </div>
 
