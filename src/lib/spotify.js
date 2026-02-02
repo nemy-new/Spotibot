@@ -6,7 +6,7 @@ export const spotifyApi = {
         // Implicit Grant Flow: response_type=token
         const url = `${AUTH_ENDPOINT}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${SCOPES.join(
             "%20"
-        )}&response_type=token&show_dialog=true`;
+        )}&response_type=token`;
 
         console.log("--------- DEBUG SPOTIFY LOGIN ---------");
         console.log("Client ID:", clientId);
