@@ -4,8 +4,8 @@ https://spotibot-psi.vercel.app/
 
 ## 🎵 主な機能
 
-### 1. Spotify連携
-### 2. スマート照明連携 (SwitchBot)
+### 1Spotify連携
+### スマート照明連携 (SwitchBot)
 
 
 
