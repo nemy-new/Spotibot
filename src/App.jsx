@@ -4,10 +4,12 @@ import { ColorController } from './components/ColorController';
 import { switchbotApi } from './lib/switchbot';
 import { spotifyApi } from './lib/spotify';
 
+const DEFAULT_SPOTIFY_CLIENT_ID = 'e617f1ec1e874124a3f147b9b6e3182f';
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('switchbot_token') || '');
   const [secret, setSecret] = useState(localStorage.getItem('switchbot_secret') || '');
-  const [spotifyClientId, setSpotifyClientId] = useState(localStorage.getItem('spotify_client_id') || '');
+  const [spotifyClientId, setSpotifyClientId] = useState(localStorage.getItem('spotify_client_id') || DEFAULT_SPOTIFY_CLIENT_ID);
   const [spotifyClientSecret, setSpotifyClientSecret] = useState(localStorage.getItem('spotify_client_secret') || '');
   const [spotifyToken, setSpotifyToken] = useState(localStorage.getItem('spotify_access_token') || '');
 

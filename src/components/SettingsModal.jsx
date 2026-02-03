@@ -13,7 +13,13 @@ export function SettingsModal({ onClose, onSave }) {
 
         if (storedToken) setToken(storedToken);
         if (storedSecret) setSecret(storedSecret);
-        if (storedSpotifyClientId) setSpotifyClientId(storedSpotifyClientId);
+
+        // Use stored ID if available, otherwise use default hardcoded ID
+        if (storedSpotifyClientId) {
+            setSpotifyClientId(storedSpotifyClientId);
+        } else {
+            setSpotifyClientId('e617f1ec1e874124a3f147b9b6e3182f');
+        }
     }, []);
 
     const handleSave = () => {
