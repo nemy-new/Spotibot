@@ -31,9 +31,21 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     const [autoSync, setAutoSync] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
 
+    // Sync Mode: 'spotify' or 'screen'
+    const [syncMode, setSyncMode] = useState('spotify');
+    const [screenStream, setScreenStream] = useState(null);
+    const [screenPreviewRef, setScreenPreviewRef] = useState(null);
+
     // Sync status on mount (from first ACTIVE device)
     useEffect(() => {
         if (activeDevices.length > 0) fetchStatus();
+
+        // Cleanup screen stream on unmount
+        return () => {
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+            }
+        };
     }, [activeDevices[0]?.deviceId]);
 
     const fetchStatus = async () => {
@@ -61,16 +73,79 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     // Auto-Sync Polling
     useEffect(() => {
         let interval;
-        if (autoSync && spotifyToken) {
-            interval = setInterval(() => {
-                syncWithSpotify(true); // silent sync
-            }, 5000);
+        if (autoSync && power) {
+            if (syncMode === 'spotify' && spotifyToken) {
+                interval = setInterval(() => {
+                    syncWithSpotify(true); // silent sync
+                }, 5000);
+            } else if (syncMode === 'screen' && screenStream) {
+                interval = setInterval(() => {
+                    syncWithScreen();
+                }, 1000); // Faster sync for video
+            }
         }
         return () => clearInterval(interval);
-    }, [autoSync, spotifyToken, track?.id]);
+    }, [autoSync, spotifyToken, track?.id, syncMode, screenStream, power]);
 
-    // Sync Logic
+    // --- Screen Sync Logic ---
+    const startScreenShare = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { width: 400, height: 400, frameRate: 10 }, // Low res/FPS for performance
+                audio: false
+            });
+
+            setScreenStream(stream);
+            setSyncMode('screen');
+
+            // Handle stream stop (user clicks "Stop sharing" in browser UI)
+            stream.getVideoTracks()[0].onended = () => {
+                stopScreenShare();
+            };
+
+        } catch (err) {
+            console.error("Screen Share Error:", err);
+            // alert("Failed to start screen share.");
+        }
+    };
+
+    const stopScreenShare = () => {
+        if (screenStream) {
+            screenStream.getTracks().forEach(track => track.stop());
+            setScreenStream(null);
+        }
+        setSyncMode('spotify'); // Fallback to spotify
+    };
+
+    const syncWithScreen = () => {
+        if (!screenStream || !screenPreviewRef) return;
+
+        // Create a temporary canvas to draw the frame
+        const video = screenPreviewRef;
+        if (video.readyState !== 4) return; // Wait for enough data
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 50;
+        canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+        // Use our vibrant color calculator
+        import('../utils/color').then(({ calculateVibrantColor }) => {
+            const vibrantHex = calculateVibrantColor(imageData);
+            if (vibrantHex && vibrantHex !== color) {
+                setColor(vibrantHex);
+                setActiveTab('color');
+            }
+        });
+    };
+
+    // --- Spotify Sync Logic ---
     const syncWithSpotify = async (silent = false) => {
+        if (syncMode !== 'spotify') return;
+
         if (!spotifyToken) {
             if (!silent) {
                 if (!spotifyClientId) {
@@ -93,14 +168,12 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             if (result.status === 401) {
                 console.warn("Spotify Token Expired or Unauthorized");
                 localStorage.removeItem('spotify_access_token');
-                // Optional: Auto-reload or just set state to show reconnect button
                 setSpotifyToken(null);
                 return;
             }
 
             // Handle other errors
             if (!silent && result.status !== 0) {
-                // Only alert if not silent and it's a real API error (not network glitch)
                 console.error("Spotify Sync Error:", result.error);
             }
             return;
@@ -109,7 +182,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         let data = result.data;
         let isFallback = false;
 
-        // FALLBACK: If no currently playing track (204 or empty item)
+        // FALLBACK: If no currently playing track
         if (!data || !data.item) {
             const recent = await spotifyApi.getRecentlyPlayed(spotifyToken);
             if (recent) {
@@ -124,12 +197,6 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             // Update only if track changes
             if (!track || track.id !== data.item.id) {
                 setTrack({ ...data.item, isFallback });
-
-                // Audio Features
-                if (data.item.id) {
-                    const features = await spotifyApi.getAudioFeatures(spotifyToken, data.item.id);
-                    setAudioFeatures(features);
-                }
 
                 // Color extraction
                 const imageUrl = data.item.album.images[0]?.url;
@@ -287,107 +354,154 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
 
                     {/* Content Layer */}
                     <div style={{ zIndex: 1, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '24px' }}>
-                        {spotifyToken ? (
-                            <>
-                                {track ? (
-                                    <div className="animate-in flex-col" style={{ flex: 1, gap: '20px', justifyContent: 'space-between', height: '100%' }}>
-                                        {/* Status Header - REMOVED (Auto-Sync moved to right) */}
-                                        <div style={{ height: '20px' }} />
 
-                                        {/* Album Art - MAXIMIZED */}
-                                        <div style={{
-                                            flex: 1,
-                                            width: '100%',
-                                            display: 'flex',
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                            position: 'relative',
-                                            minHeight: '0' // flex bug fix
-                                        }}>
+                        {/* Sync Source Toggle */}
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', gap: '8px' }}>
+                            <button
+                                onClick={() => { setSyncMode('spotify'); if (screenStream) stopScreenShare(); }}
+                                style={{
+                                    background: syncMode === 'spotify' ? 'rgba(29, 185, 84, 0.2)' : 'transparent',
+                                    color: syncMode === 'spotify' ? '#1DB954' : 'rgba(255,255,255,0.5)',
+                                    border: syncMode === 'spotify' ? '1px solid #1DB954' : '1px solid rgba(255,255,255,0.1)',
+                                    padding: '6px 16px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>music_note</span> Spotify
+                            </button>
+                            <button
+                                onClick={() => setSyncMode('screen')}
+                                style={{
+                                    background: syncMode === 'screen' ? 'rgba(64, 158, 255, 0.2)' : 'transparent',
+                                    color: syncMode === 'screen' ? '#409eff' : 'rgba(255,255,255,0.5)',
+                                    border: syncMode === 'screen' ? '1px solid #409eff' : '1px solid rgba(255,255,255,0.1)',
+                                    padding: '6px 16px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cast</span> Screen
+                            </button>
+                        </div>
+
+                        {syncMode === 'spotify' ? (
+                            spotifyToken ? (
+                                <>
+                                    {track ? (
+                                        <div className="animate-in flex-col" style={{ flex: 1, gap: '20px', justifyContent: 'space-between', height: '100%' }}>
+                                            {/* (Existing Spotify Card Content) */}
                                             <div style={{
+                                                flex: 1,
+                                                width: '100%',
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
                                                 position: 'relative',
-                                                height: '100%',
-                                                aspectRatio: '1/1',
-                                                maxHeight: '45vh', // prevent overflow
-                                                maxWidth: '100%',
-                                                borderRadius: '12px',
-                                                boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-                                                overflow: 'hidden'
+                                                minHeight: '0'
                                             }}>
-                                                <img
-                                                    src={track.album.images[0].url}
-                                                    alt="Album Art"
-                                                    crossOrigin="Anonymous"
-                                                    onClick={handleArtClick}
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover',
-                                                        cursor: 'crosshair'
-                                                    }}
-                                                />
+                                                <div style={{
+                                                    position: 'relative',
+                                                    height: '100%',
+                                                    aspectRatio: '1/1',
+                                                    maxHeight: '45vh',
+                                                    maxWidth: '100%',
+                                                    borderRadius: '12px',
+                                                    boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+                                                    overflow: 'hidden'
+                                                }}>
+                                                    <img
+                                                        src={track.album.images[0].url}
+                                                        alt="Album Art"
+                                                        crossOrigin="Anonymous"
+                                                        onClick={handleArtClick}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'crosshair' }}
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Track Info */}
-                                        <div className="flex-col" style={{ gap: '4px', width: '100%' }}>
-                                            <div style={{ fontSize: '24px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
-                                                {track.name}
-                                            </div>
-                                            <div style={{ fontSize: '16px', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
-                                                {track.artists.map(a => a.name).join(', ')}
-                                            </div>
-                                            <div className="flex-row" style={{ gap: '48px', marginTop: '16px', justifyContent: 'center', width: '100%' }}>
-                                                <button onClick={() => handlePlayback('prev')} className="btn-icon-playback" style={{ opacity: 0.7 }}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: '40px' }}>skip_previous</span>
-                                                </button>
-                                                <button onClick={() => handlePlayback('toggle')} className="btn-icon-playback" style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '50%', width: '72px', height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: '48px', color: isPlaying ? 'var(--primary-color)' : 'white' }}>{isPlaying ? 'pause' : 'play_arrow'}</span>
-                                                </button>
-                                                <button onClick={() => handlePlayback('next')} className="btn-icon-playback" style={{ opacity: 0.7 }}>
-                                                    <span className="material-symbols-outlined" style={{ fontSize: '40px' }}>skip_next</span>
-                                                </button>
+                                            {/* Track Info */}
+                                            <div className="flex-col" style={{ gap: '4px', width: '100%' }}>
+                                                <div style={{ fontSize: '24px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
+                                                    {track.name}
+                                                </div>
+                                                <div style={{ fontSize: '16px', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
+                                                    {track.artists.map(a => a.name).join(', ')}
+                                                </div>
+                                                <div className="flex-row" style={{ gap: '48px', marginTop: '16px', justifyContent: 'center', width: '100%' }}>
+                                                    <button onClick={() => handlePlayback('prev')} className="btn-icon-playback" style={{ opacity: 0.7 }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: '40px' }}>skip_previous</span>
+                                                    </button>
+                                                    <button onClick={() => handlePlayback('toggle')} className="btn-icon-playback" style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '50%', width: '72px', height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: '48px', color: isPlaying ? 'var(--primary-color)' : 'white' }}>{isPlaying ? 'pause' : 'play_arrow'}</span>
+                                                    </button>
+                                                    <button onClick={() => handlePlayback('next')} className="btn-icon-playback" style={{ opacity: 0.7 }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: '40px' }}>skip_next</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
+                                    ) : (
+                                        <div style={{ padding: '40px', opacity: 0.8, textAlign: 'center' }}>
+                                            {/* ... (Existing No Track UI) ... */}
+                                            <div style={{ fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: '64px' }}>music_off</span></div>
+                                            <h3 style={{ margin: '0 0 16px 0' }}>Waiting for Spotify...</h3>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                // No Spotify Token
+                                <div className="flex-col" style={{ alignItems: 'center', gap: '32px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '80px', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.2))' }}>music_note</span>
+                                    <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
+                                        <h2 style={{ fontSize: '32px', margin: 0 }}>Spotify Sync</h2>
+                                        <p style={{ opacity: 0.6, fontSize: '16px' }}>Connect to transform your space with music.</p>
                                     </div>
-                                ) : (
-                                    <div style={{ padding: '40px', opacity: 0.8, textAlign: 'center' }}>
-                                        <div style={{ fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: '64px' }}>music_off</span></div>
-                                        <h3 style={{ margin: '0 0 16px 0' }}>Waiting for Spotify...</h3>
-                                        <p style={{ fontSize: '12px', opacity: 0.6, maxWidth: '200px', margin: '0 auto 24px auto' }}>
-                                            If this takes too long, you may need to update permissions.
-                                        </p>
-                                        <button
-                                            onClick={() => {
-                                                localStorage.removeItem('spotify_access_token');
-                                                window.location.reload();
-                                            }}
-                                            className="btn-primary"
-                                            style={{ fontSize: '12px', padding: '8px 16px', background: 'rgba(255,255,255,0.1)' }}
-                                        >
-                                            <span className="material-symbols-outlined" style={{ verticalAlign: 'middle', marginRight: '5px', fontSize: '16px' }}>refresh</span> Reconnect
+                                    {spotifyClientId ? (
+                                        <button onClick={() => syncWithSpotify()} className="btn-primary" style={{ background: '#1DB954', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(29, 185, 84, 0.3)' }}>
+                                            Connect Spotify Account
                                         </button>
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            // ... existing code for login ...
-                            null
-                        )}
-                        {!spotifyToken && (
-                            <div className="flex-col" style={{ alignItems: 'center', gap: '32px' }}>
-                                <span className="material-symbols-outlined" style={{ fontSize: '80px', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.2))' }}>music_note</span>
-                                <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
-                                    <h2 style={{ fontSize: '32px', margin: 0 }}>Spotify Sync</h2>
-                                    <p style={{ opacity: 0.6, fontSize: '16px' }}>Connect to transform your space with music.</p>
+                                    ) : (
+                                        <button onClick={onOpenSettings} className="btn-primary" style={{ background: '#555', padding: '16px 48px', fontSize: '18px', borderRadius: '100px' }}>
+                                            ⚠️ Set Client ID First
+                                        </button>
+                                    )}
                                 </div>
-                                {spotifyClientId ? (
-                                    <button onClick={() => syncWithSpotify()} className="btn-primary" style={{ background: '#1DB954', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(29, 185, 84, 0.3)' }}>
-                                        Connect Spotify Account
+                            )
+                        ) : (
+                            // --- SCREEN SYNC UI ---
+                            <div className="animate-in flex-col" style={{ alignItems: 'center', gap: '32px', justifyContent: 'center', height: '100%' }}>
+                                <div style={{
+                                    width: '100%', flex: 1, maxHeight: '300px', background: '#000', borderRadius: '12px', overflow: 'hidden',
+                                    display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative'
+                                }}>
+                                    {screenStream ? (
+                                        <video
+                                            ref={(el) => { if (el) el.srcObject = screenStream; setScreenPreviewRef(el); }}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                        />
+                                    ) : (
+                                        <div style={{ color: 'rgba(255,255,255,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                                            <span className="material-symbols-outlined" style={{ fontSize: '48px' }}>screenshot_monitor</span>
+                                            <span>Preview will appear here</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
+                                    <h2 style={{ fontSize: '24px', margin: 0 }}>Visual Screen Sync</h2>
+                                    <p style={{ opacity: 0.6, fontSize: '14px', maxWidth: '300px', textAlign: 'center' }}>
+                                        Sync lights with YouTube, Netflix, or any open window.
+                                    </p>
+                                </div>
+
+                                {!screenStream ? (
+                                    <button onClick={startScreenShare} className="btn-primary" style={{ background: '#409eff', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(64, 158, 255, 0.3)' }}>
+                                        <span className="material-symbols-outlined" style={{ marginRight: '8px' }}>present_to_all</span>
+                                        Select Window
                                     </button>
                                 ) : (
-                                    <button onClick={onOpenSettings} className="btn-primary" style={{ background: '#555', padding: '16px 48px', fontSize: '18px', borderRadius: '100px' }}>
-                                        ⚠️ Set Client ID First
+                                    <button onClick={stopScreenShare} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '16px', borderRadius: '100px', border: '1px solid #ff4d4f', color: '#ff4d4f' }}>
+                                        Stop Sync
                                     </button>
                                 )}
                             </div>
