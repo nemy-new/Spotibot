@@ -466,44 +466,115 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                             )
                         ) : (
                             // --- SCREEN SYNC UI ---
-                            <div className="animate-in flex-col" style={{ alignItems: 'center', gap: '32px', justifyContent: 'center', height: '100%' }}>
+                            <div className="animate-in flex-col" style={{ alignItems: 'center', gap: '24px', justifyContent: 'center', height: '100%', position: 'relative' }}>
+
+                                {/* Monitor/Preview Frame */}
                                 <div style={{
-                                    width: '100%', flex: 1, maxHeight: '300px', background: '#000', borderRadius: '12px', overflow: 'hidden',
-                                    display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative'
+                                    width: '100%',
+                                    flex: 1,
+                                    maxHeight: '360px',
+                                    background: '#000',
+                                    borderRadius: '16px',
+                                    border: '1px solid var(--glass-border)',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    position: 'relative',
+                                    boxShadow: screenStream ? '0 0 40px rgba(64, 158, 255, 0.2)' : 'none',
+                                    transition: 'box-shadow 0.5s'
                                 }}>
                                     {screenStream ? (
-                                        <video
-                                            ref={(el) => { if (el) el.srcObject = screenStream; setScreenPreviewRef(el); }}
-                                            autoPlay
-                                            playsInline
-                                            muted
-                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                        />
+                                        <>
+                                            <video
+                                                ref={(el) => {
+                                                    if (el) {
+                                                        el.srcObject = screenStream;
+                                                        setScreenPreviewRef(el);
+                                                        el.play().catch(e => console.error("Video play failed:", e));
+                                                    }
+                                                }}
+                                                autoPlay
+                                                playsInline
+                                                muted
+                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                            />
+                                            {/* LIVE Badge */}
+                                            <div style={{
+                                                position: 'absolute', top: '16px', right: '16px',
+                                                padding: '4px 12px', background: 'rgba(255,0,0,0.8)', color: 'white',
+                                                borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px',
+                                                boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}>
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'blink 1s infinite' }} />
+                                                LIVE
+                                            </div>
+                                        </>
                                     ) : (
-                                        <div style={{ color: 'rgba(255,255,255,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                                            <span className="material-symbols-outlined" style={{ fontSize: '48px' }}>screenshot_monitor</span>
-                                            <span>Preview will appear here</span>
+                                        <div className="flex-col" style={{ alignItems: 'center', gap: '16px', opacity: 0.4 }}>
+                                            <div style={{
+                                                width: '80px', height: '60px', borderRadius: '8px', border: '2px dashed rgba(255,255,255,0.5)',
+                                                display: 'flex', justifyContent: 'center', alignItems: 'center'
+                                            }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>present_to_all</span>
+                                            </div>
+                                            <span style={{ fontSize: '14px', letterSpacing: '0.5px' }}>NO SIGNAL</span>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
-                                    <h2 style={{ fontSize: '24px', margin: 0 }}>Visual Screen Sync</h2>
-                                    <p style={{ opacity: 0.6, fontSize: '14px', maxWidth: '300px', textAlign: 'center' }}>
-                                        Sync lights with YouTube, Netflix, or any open window.
-                                    </p>
-                                </div>
+                                {/* Info & Controls */}
+                                <div className="flex-col" style={{ alignItems: 'center', gap: '16px', width: '100%' }}>
+                                    {!screenStream && (
+                                        <div className="flex-col" style={{ alignItems: 'center', gap: '4px' }}>
+                                            <h2 style={{ fontSize: '20px', margin: 0 }}>Visual Sync</h2>
+                                            <p style={{ opacity: 0.6, fontSize: '12px', textAlign: 'center' }}>
+                                                Match lights to movies, games, or videos.
+                                            </p>
+                                        </div>
+                                    )}
 
-                                {!screenStream ? (
-                                    <button onClick={startScreenShare} className="btn-primary" style={{ background: '#409eff', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(64, 158, 255, 0.3)' }}>
-                                        <span className="material-symbols-outlined" style={{ marginRight: '8px' }}>present_to_all</span>
-                                        Select Window
-                                    </button>
-                                ) : (
-                                    <button onClick={stopScreenShare} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '16px', borderRadius: '100px', border: '1px solid #ff4d4f', color: '#ff4d4f' }}>
-                                        Stop Sync
-                                    </button>
-                                )}
+                                    {!screenStream ? (
+                                        <button
+                                            onClick={startScreenShare}
+                                            className="btn-primary"
+                                            style={{
+                                                background: '#409eff',
+                                                padding: '14px 40px',
+                                                fontSize: '16px',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                boxShadow: '0 8px 24px rgba(64, 158, 255, 0.25)',
+                                                display: 'flex', alignItems: 'center', gap: '8px',
+                                                transition: 'transform 0.2s'
+                                            }}
+                                            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                        >
+                                            <span className="material-symbols-outlined">fit_screen</span>
+                                            Select Window
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={stopScreenShare}
+                                            className="btn-secondary"
+                                            style={{
+                                                padding: '12px 32px',
+                                                fontSize: '14px',
+                                                borderRadius: '12px',
+                                                border: '1px solid rgba(255, 77, 79, 0.5)',
+                                                color: '#ff4d4f',
+                                                background: 'rgba(255, 77, 79, 0.1)',
+                                                cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: '8px'
+                                            }}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>stop_circle</span>
+                                            Stop Sync
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
