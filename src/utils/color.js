@@ -1,15 +1,106 @@
-import { FastAverageColor } from 'fast-average-color';
+// Helper: Convert RGB to HSL
+function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
 
-const fac = new FastAverageColor();
+    if (max === min) {
+        h = s = 0; // achromatic
+    } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    return [h, s, l];
+}
+
+// Helper: Convert component to Hex
+function componentToHex(c) {
+    const hex = c.toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+}
+
+function rgbToHex(r, g, b) {
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
 
 export const extractColorFromImage = async (imageUrl) => {
-    try {
-        const color = await fac.getColorAsync(imageUrl);
-        return color.hex;
-    } catch (error) {
-        console.warn("Failed to extract color:", error);
-        return null;
-    }
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = imageUrl;
+
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Downscale for performance (50x50 is enough for palette)
+                const width = 50;
+                const height = 50;
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const imageData = ctx.getImageData(0, 0, width, height).data;
+                const colorScores = [];
+
+                for (let i = 0; i < imageData.length; i += 4) {
+                    const r = imageData[i];
+                    const g = imageData[i + 1];
+                    const b = imageData[i + 2];
+                    const a = imageData[i + 3];
+
+                    if (a < 128) continue; // Skip transparent
+
+                    const [h, s, l] = rgbToHsl(r, g, b);
+
+                    // Skip dark, white, and low saturation pixels
+                    if (l < 0.15 || l > 0.90 || s < 0.2) continue;
+
+                    // Scoring: Heavily favor Saturation, favor Lightness around 0.5
+                    const score = (s * 3.0) + (1.0 - Math.abs(l - 0.5));
+
+                    colorScores.push({ r, g, b, score });
+                }
+
+                if (colorScores.length === 0) {
+                    // Fallback if image is B&W or very dull: Return a safe default or average
+                    resolve("#ffffff");
+                    return;
+                }
+
+                // Sort by score descending and take the top one
+                // To avoid 1-pixel noise, we could bucket, but taking the top percentile is usually fine for "Vibrant"
+                colorScores.sort((a, b) => b.score - a.score);
+
+                // Take average of top 10 vivid pixels to smooth out noise
+                const topPicks = colorScores.slice(0, 10);
+                let sumR = 0, sumG = 0, sumB = 0;
+                topPicks.forEach(c => { sumR += c.r; sumG += c.g; sumB += c.b; });
+
+                const finalR = Math.round(sumR / topPicks.length);
+                const finalG = Math.round(sumG / topPicks.length);
+                const finalB = Math.round(sumB / topPicks.length);
+
+                resolve(rgbToHex(finalR, finalG, finalB));
+
+            } catch (e) {
+                console.warn("Color extraction failed:", e);
+                resolve(null);
+            }
+        };
+
+        img.onerror = () => {
+            console.warn("Image load failed");
+            resolve(null);
+        };
+    });
 };
 
 export const getPixelColorFromImage = async (imageUrl, x, y, imgElement) => {
