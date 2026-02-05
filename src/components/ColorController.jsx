@@ -377,14 +377,34 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 transition: 'background 0.5s ease'
             }}
         >
-            {/* Ambient Background Light - The "Glow" */}
-            <div style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                background: `radial-gradient(circle at 50% 50%, ${color}66 0%, ${color}22 40%, transparent 80%)`, // Increased opacity for "All Out"
-                zIndex: -1, pointerEvents: 'none',
-                transition: 'background 0.2s ease', // Fast transition for Screen Sync
-                mixBlendMode: 'screen'
-            }} />
+            {/* --- Dynamic Aurora Background --- */}
+            <div style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none', background: '#050505' }}>
+                {/* Blob 1: Top Left / Main Color */}
+                <div className="aurora-blob" style={{
+                    top: '-10%', left: '-10%', width: '70vw', height: '70vw',
+                    backgroundColor: color, opacity: 0.4,
+                    animationDuration: '25s'
+                }} />
+
+                {/* Blob 2: Bottom Right / Secondary */}
+                <div className="aurora-blob" style={{
+                    bottom: '-10%', right: '-10%', width: '60vw', height: '60vw',
+                    backgroundColor: color, opacity: 0.3,
+                    animationDirection: 'reverse', animationDuration: '30s',
+                    filter: 'blur(100px) hue-rotate(30deg)' // Slight hue shift for depth
+                }} />
+
+                {/* Blob 3: Center Accent (Lighter) */}
+                <div className="aurora-blob" style={{
+                    top: '30%', left: '30%', width: '40vw', height: '40vw',
+                    backgroundColor: color, opacity: 0.4,
+                    animationDuration: '20s',
+                    mixBlendMode: 'overlay'
+                }} />
+
+                {/* Noise texture overlay for texture (optional, subtle) */}
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.03, background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'0 0 2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")', pointerEvents: 'none' }} />
+            </div>
             {/* Header / Info Bar - SIMPLIFIED */}
             <div className="flex-row justify-end w-full" style={{ padding: '0 8px', height: '40px' }}>
                 <button onClick={fetchStatus} className="btn-icon-playback" title="Refresh Status" style={{ fontSize: '16px', opacity: 0.8, padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }}>
