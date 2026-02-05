@@ -288,6 +288,15 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     }, [color, activeTab, activeDevices, syncMode]);
 
 
+    // --- Refs for Stale Closure Prevention in Sync Loop ---
+    const stateRef = useRef({ activeDevices: [], token: null, secret: null, color: '#000000', syncMode: 'spotify' });
+
+    // Keep Refs synchronized with latest state
+    useEffect(() => {
+        stateRef.current = { activeDevices, token, secret, color, syncMode };
+    }, [activeDevices, token, secret, color, syncMode]);
+
+
     // Auto-Sync Polling
     useEffect(() => {
         let interval;
@@ -323,7 +332,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         if (video.readyState !== 4 && video.readyState !== 3) return;
 
         // 1. Extract Color (Fast)
-        const canvas = document.createElement('canvas'); // Optimization: Could reuse a single canvas ref
+        const canvas = document.createElement('canvas');
         canvas.width = 50;
         canvas.height = 50;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -333,6 +342,9 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
 
         import('../utils/color').then(({ calculateVibrantColor }) => {
             const vibrantHex = calculateVibrantColor(imageData);
+
+            // Access LATEST state from Ref
+            const { activeDevices, token, secret, color } = stateRef.current;
 
             if (vibrantHex && vibrantHex !== color) {
                 // 2. UI Update (Always Instant)
@@ -350,9 +362,11 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                     const parameter = `${r}:${g}:${b}`;
 
                     // Fire and forget (don't await in loop)
-                    Promise.all(activeDevices.map(d =>
-                        switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
-                    )).catch(e => console.warn("Throttled sync error:", e));
+                    if (activeDevices.length > 0 && token && secret) {
+                        Promise.all(activeDevices.map(d =>
+                            switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
+                        )).catch(e => console.warn("Throttled sync error:", e));
+                    }
                 }
             }
         });
