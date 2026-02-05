@@ -488,7 +488,9 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                                     maxWidth: '100%',
                                                     borderRadius: '12px',
                                                     boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-                                                    overflow: 'hidden'
+                                                    overflow: 'hidden',
+                                                    // Group for hover effect
+                                                    className: "art-container"
                                                 }}>
                                                     <img
                                                         src={track.album.images[0].url}
@@ -497,6 +499,19 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                                         onClick={handleArtClick}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'crosshair' }}
                                                     />
+
+                                                    {/* Detected Color Badge */}
+                                                    <div style={{
+                                                        position: 'absolute', bottom: '12px', right: '12px',
+                                                        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                                                        padding: '6px 12px', borderRadius: '100px',
+                                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                                    }} title="Detected Color applied to lights">
+                                                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: color, boxShadow: `0 0 10px ${color}` }} />
+                                                        <span style={{ fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold' }}>{color}</span>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -595,6 +610,23 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                             }}>
                                                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'blink 1s infinite' }} />
                                                 LIVE
+                                            </div>
+
+                                            {/* Detected Color Footer */}
+                                            <div style={{
+                                                position: 'absolute', bottom: '16px', left: '0', right: '0',
+                                                display: 'flex', justifyContent: 'center'
+                                            }}>
+                                                <div style={{
+                                                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                                                    padding: '6px 16px', borderRadius: '100px',
+                                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                                    border: '1px solid rgba(255,255,255,0.1)'
+                                                }}>
+                                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>SYNCING</span>
+                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                                                    <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{color}</span>
+                                                </div>
                                             </div>
                                         </>
                                     ) : (
