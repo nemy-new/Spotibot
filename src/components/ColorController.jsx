@@ -117,31 +117,6 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         setSyncMode('spotify'); // Fallback to spotify
     };
 
-    const syncWithScreen = () => {
-        if (!screenStream || !screenPreviewRef) return;
-
-        // Create a temporary canvas to draw the frame
-        const video = screenPreviewRef;
-        if (video.readyState !== 4) return; // Wait for enough data
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 50;
-        canvas.height = 50;
-        const ctx = canvas.getContext('2d');
-
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-        // Use our vibrant color calculator
-        import('../utils/color').then(({ calculateVibrantColor }) => {
-            const vibrantHex = calculateVibrantColor(imageData);
-            if (vibrantHex && vibrantHex !== color) {
-                setColor(vibrantHex);
-                setActiveTab('color');
-            }
-        });
-    };
-
     // --- Spotify Sync Logic ---
     const syncWithSpotify = async (silent = false) => {
         if (syncMode !== 'spotify') return;
