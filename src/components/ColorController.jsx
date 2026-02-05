@@ -278,19 +278,111 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         } catch (e) { console.error(e); }
     }, 500, [colorTemp, activeTab, activeDevices]);
 
-    // Debounced Color Change (Broadcast)
-    useDebounce(async () => {
+    // --- Manual Debounce & Throttling Logic ---
+    const lastCommandTime = React.useRef(0);
+    const colorDebounceTimer = React.useRef(null);
+
+    // Effect: Handle Color Changes (replaces generic useDebounce)
+    useEffect(() => {
         if (activeDevices.length === 0 || activeTab !== 'color') return;
-        const r = parseInt(color.slice(1, 3), 16);
-        const g = parseInt(color.slice(3, 5), 16);
-        const b = parseInt(color.slice(5, 7), 16);
-        const parameter = `${r}:${g}:${b}`;
-        try {
-            await Promise.all(activeDevices.map(d =>
-                switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
-            ));
-        } catch (e) { console.error(e); }
-    }, 500, [color, activeTab, activeDevices]);
+
+        // If in Screen Sync mode, we control the API calls manually via Throttle in the loop
+        if (syncMode === 'screen') {
+            // However, we still want the UI (color state) to update instantly.
+            // The API call is handled inside syncWithScreen logic to ensure throttling.
+            return;
+        }
+
+        // Standard Debounce for Manual Picking / Spotify
+        if (colorDebounceTimer.current) clearTimeout(colorDebounceTimer.current);
+
+        colorDebounceTimer.current = setTimeout(async () => {
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            const parameter = `${r}:${g}:${b}`;
+            try {
+                await Promise.all(activeDevices.map(d =>
+                    switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
+                ));
+            } catch (e) { console.error(e); }
+        }, 500);
+
+        return () => clearTimeout(colorDebounceTimer.current);
+    }, [color, activeTab, activeDevices, syncMode]);
+
+
+    // Auto-Sync Polling
+    useEffect(() => {
+        let interval;
+        let animationFrame;
+
+        if (autoSync && power) {
+            if (syncMode === 'spotify' && spotifyToken) {
+                interval = setInterval(() => {
+                    syncWithSpotify(true); // silent sync
+                }, 5000);
+            } else if (syncMode === 'screen' && screenStream) {
+                // Real-time loop for Screen Sync (60fps UI)
+                const loop = () => {
+                    syncWithScreen();
+                    animationFrame = requestAnimationFrame(loop);
+                };
+                loop();
+            }
+        }
+        return () => {
+            clearInterval(interval);
+            cancelAnimationFrame(animationFrame);
+        };
+    }, [autoSync, spotifyToken, track?.id, syncMode, screenStream, power]);
+
+    // --- Screen Sync Logic ---
+    // ... (start/stopScreenShare reused) ...
+
+    const syncWithScreen = () => {
+        if (!screenStream || !screenPreviewRef) return;
+
+        const video = screenPreviewRef;
+        if (video.readyState !== 4 && video.readyState !== 3) return;
+
+        // 1. Extract Color (Fast)
+        const canvas = document.createElement('canvas'); // Optimization: Could reuse a single canvas ref
+        canvas.width = 50;
+        canvas.height = 50;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+        import('../utils/color').then(({ calculateVibrantColor }) => {
+            const vibrantHex = calculateVibrantColor(imageData);
+
+            if (vibrantHex && vibrantHex !== color) {
+                // 2. UI Update (Always Instant)
+                setColor(vibrantHex);
+                setActiveTab('color');
+
+                // 3. Device Update (Throttled to ~1.5s)
+                const now = Date.now();
+                if (now - lastCommandTime.current > 1500) {
+                    lastCommandTime.current = now; // update first to prevent double-fire
+
+                    const r = parseInt(vibrantHex.slice(1, 3), 16);
+                    const g = parseInt(vibrantHex.slice(3, 5), 16);
+                    const b = parseInt(vibrantHex.slice(5, 7), 16);
+                    const parameter = `${r}:${g}:${b}`;
+
+                    // Fire and forget (don't await in loop)
+                    Promise.all(activeDevices.map(d =>
+                        switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
+                    )).catch(e => console.warn("Throttled sync error:", e));
+                }
+            }
+        });
+    };
+
+    // ... (Spotify Sync reused) ...
 
     if (devices.length === 0) return null;
 
@@ -305,20 +397,17 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '20px',
-                zIndex: 1
+                zIndex: 1,
+                // Main Ambient Background Transition
+                transition: 'background 0.5s ease'
             }}
         >
             {/* Ambient Background Light - The "Glow" */}
             <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: `radial-gradient(circle at 50% 50%, ${color}55 0%, ${color}11 40%, transparent 80%)`,
-                zIndex: -1,
-                pointerEvents: 'none',
-                animation: 'breathe 10s ease-in-out infinite',
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: `radial-gradient(circle at 50% 50%, ${color}66 0%, ${color}22 40%, transparent 80%)`, // Increased opacity for "All Out"
+                zIndex: -1, pointerEvents: 'none',
+                transition: 'background 0.2s ease', // Fast transition for Screen Sync
                 mixBlendMode: 'screen'
             }} />
             {/* Header / Info Bar - SIMPLIFIED */}
@@ -481,8 +570,10 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     justifyContent: 'center',
                                     alignItems: 'center',
                                     position: 'relative',
-                                    boxShadow: screenStream ? '0 0 40px rgba(64, 158, 255, 0.2)' : 'none',
-                                    transition: 'box-shadow 0.5s'
+                                    // Dynamic Ambilight Glow
+                                    boxShadow: screenStream ? `0 0 60px ${color}88, 0 0 100px ${color}44` : 'none',
+                                    transition: 'box-shadow 0.1s ease', // Ultra-fast response
+                                    transform: 'perspective(1000px) rotateX(2deg)', // Subtle 3D tilt
                                 }}>
                                     {screenStream ? (
                                         <>
