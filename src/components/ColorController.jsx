@@ -13,7 +13,7 @@ const useDebounce = (effect, delay, deps) => {
     }, [...deps || [], delay]);
 };
 
-export function ColorController({ devices, selectedDeviceIds, onToggleDevice, token, secret, spotifyToken, spotifyClientId, onOpenSettings }) {
+export function ColorController({ devices, selectedDeviceIds, onToggleDevice, token, secret, spotifyToken, spotifyClientId, onOpenSettings, onTokenExpired }) {
     // Filter active devices based on selection
     const activeDevices = devices.filter(d => selectedDeviceIds.includes(d.deviceId));
 
