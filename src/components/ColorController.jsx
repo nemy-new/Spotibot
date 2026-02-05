@@ -328,14 +328,21 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         useEffect(() => {
             const video = videoRef.current;
             if (video && screenStream) {
-                // Only update if stream changed to avoid interrupting play()
+                // Only update if stream changed
                 if (video.srcObject !== screenStream) {
                     video.srcObject = screenStream;
-                    video.play().catch(e => {
-                        if (e.name !== 'AbortError') {
-                            console.error("Video play failed:", e);
+
+                    // Wait for metadata to load to prevent "interrupted" errors
+                    video.onloadedmetadata = () => {
+                        if (video.paused) {
+                            video.play().catch(e => {
+                                // Completely suppress AbortError as it's harmless here
+                                if (e.name !== 'AbortError') {
+                                    console.error("Video play failed:", e);
+                                }
+                            });
                         }
-                    });
+                    };
                 }
             }
         }, [screenStream]);
