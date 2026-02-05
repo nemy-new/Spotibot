@@ -317,7 +317,10 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             background: 'var(--glass-bg)',
             borderColor: autoSync ? 'rgba(29, 185, 84, 0.4)' : 'var(--glass-border)',
             minHeight: isMobile ? '0' : undefined, // Allow shrinking on mobile
-            height: isMobile ? '100%' : undefined
+            height: isMobile ? '100%' : undefined,
+            // Mobile specific: Ensure bottom bar doesn't cover content if we had scroll, 
+            // but visuals shouldn't scroll. We just need space.
+            marginBottom: isMobile ? '80px' : '0'
         }}>
             {/* Inner Glow */}
             <div style={{
@@ -328,10 +331,10 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             }} />
 
             {/* Content Layer */}
-            <div style={{ zIndex: 1, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '24px' }}>
+            <div style={{ zIndex: 1, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '24px', overflowY: isMobile ? 'auto' : 'visible' }}>
 
                 {/* Sync Source Toggle */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', gap: '8px', flexShrink: 0 }}>
                     <button
                         onClick={() => { setSyncMode('spotify'); if (screenStream) stopScreenShare(); }}
                         style={{
@@ -360,7 +363,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                     spotifyToken ? (
                         <>
                             {track ? (
-                                <div className="animate-in flex-col" style={{ flex: 1, gap: '20px', justifyContent: 'space-between', height: '100%' }}>
+                                <div className="animate-in flex-col" style={{ flex: 1, gap: '20px', justifyContent: 'space-between', height: '100%', minHeight: '0' }}>
 
                                     <div style={{
                                         flex: 1,
@@ -375,7 +378,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                             position: 'relative',
                                             height: '100%',
                                             aspectRatio: '1/1',
-                                            maxHeight: isMobile ? '35vh' : '45vh', // Smaller art on mobile
+                                            maxHeight: isMobile ? '40vh' : '45vh', // Adjusted for mobile
                                             maxWidth: '100%',
                                             borderRadius: '12px',
                                             boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
@@ -407,7 +410,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     </div>
 
                                     {/* Track Info */}
-                                    <div className="flex-col" style={{ gap: '4px', width: '100%' }}>
+                                    <div className="flex-col" style={{ gap: '4px', width: '100%', flexShrink: 0 }}>
                                         <div style={{ fontSize: '24px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
                                             {track.name}
                                         </div>
@@ -533,7 +536,9 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             zIndex: 2,
             justifyContent: 'flex-start',
             gap: '24px',
-            marginBottom: isMobile ? '80px' : '0' // Space for navbar
+            // Add bottom margin for nav bar, AND allow scrolling
+            marginBottom: isMobile ? '80px' : '0',
+            overflowY: 'auto'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '14px', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -759,7 +764,15 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             </div>
 
             {/* Header / Info Bar */}
-            <div className="flex-row justify-end w-full" style={{ padding: '0 8px', height: '40px' }}>
+            <div className="flex-row justify-between w-full" style={{ padding: '0 8px', height: '40px', alignItems: 'center' }}>
+                {/* Mobile Logo (Visible only if main app header is scrolled out or hidden) */}
+                <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, opacity: 0.9, display: isMobile ? 'block' : 'none' }}>
+                    <span style={{ color: 'var(--primary-color)' }}>Spoti</span>Bot
+                </h1>
+
+                {/* Spacer if not mobile to push button right */}
+                {!isMobile && <div style={{ flex: 1 }}></div>}
+
                 <button onClick={fetchStatus} className="btn-icon-playback" title="Refresh Status" style={{ fontSize: '16px', opacity: 0.8, padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }}>
                     <span className="material-symbols-outlined">refresh</span>
                 </button>
