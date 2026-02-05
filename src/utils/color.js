@@ -56,21 +56,32 @@ export const extractColorFromImage = async (imageUrl) => {
                     const b = imageData[i + 2];
                     const a = imageData[i + 3];
 
-                    if (a < 128) continue; // Skip transparent
+                    // Skip mostly transparent pixels
+                    if (a < 128) continue;
 
                     const [h, s, l] = rgbToHsl(r, g, b);
 
-                    // Skip dark, white, and low saturation pixels
-                    if (l < 0.15 || l > 0.90 || s < 0.2) continue;
+                    // Relaxed filters: Allow lower saturation (0.05) and wider lightness (0.10 - 0.95)
+                    // This ensures we capture colors from movies/websites that aren't super neon.
+                    if (l < 0.10 || l > 0.95 || s < 0.05) continue;
 
-                    // Scoring: Heavily favor Saturation, favor Lightness around 0.5
-                    const score = (s * 3.0) + (1.0 - Math.abs(l - 0.5));
+                    // Scoring: Still favor saturation, but be less punishing
+                    const score = (s * 2.0) + (1.0 - Math.abs(l - 0.5));
 
                     colorScores.push({ r, g, b, score });
                 }
 
                 if (colorScores.length === 0) {
-                    // Fallback if image is B&W or very dull: Return a safe default or average
+                    // Fallback: If no "decent" pixels found (e.g. pure B&W image),
+                    // Just take a simple average of the center of the image.
+                    let sumR = 0, sumG = 0, sumB = 0, count = 0;
+                    for (let i = 0; i < imageData.length; i += 40) { // sparse sample
+                        sumR += imageData[i]; sumG += imageData[i + 1]; sumB += imageData[i + 2]; count++;
+                    }
+                    if (count > 0) {
+                        resolve(rgbToHex(Math.round(sumR / count), Math.round(sumG / count), Math.round(sumB / count)));
+                        return;
+                    }
                     resolve("#ffffff");
                     return;
                 }
