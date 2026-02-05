@@ -32,9 +32,10 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     const [isPlaying, setIsPlaying] = useState(false);
 
     // Sync Mode: 'spotify' or 'screen'
-    const [syncMode, setSyncMode] = useState('spotify');
+    const [syncMode, setSyncMode] = useState('spotify'); // 'spotify' | 'screen'
     const [screenStream, setScreenStream] = useState(null);
     const [screenPreviewRef, setScreenPreviewRef] = useState(null);
+    const [isCinemaMode, setIsCinemaMode] = useState(false); // New Cinema Mode state
 
     // Sync status on mount (from first ACTIVE device)
     useEffect(() => {
@@ -565,13 +566,14 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                             )
                         ) : (
                             // --- SCREEN SYNC UI ---
-                            <div className="animate-in flex-col" style={{ alignItems: 'center', gap: '24px', justifyContent: 'center', height: '100%', position: 'relative' }}>
+                            <div className="animate-in flex-col" style={{ alignItems: 'center', gap: isCinemaMode ? '0' : '24px', justifyContent: 'center', height: '100%', position: 'relative' }}>
 
                                 {/* Monitor/Preview Frame */}
                                 <div style={{
                                     width: '100%',
-                                    flex: 1,
-                                    maxHeight: '360px',
+                                    flex: isCinemaMode ? 1 : 'unset', // Fill space in Cinema Mode
+                                    height: isCinemaMode ? '100%' : 'unset',
+                                    maxHeight: isCinemaMode ? '100%' : '360px',
                                     background: '#000',
                                     borderRadius: '16px',
                                     border: '1px solid var(--glass-border)',
@@ -582,8 +584,9 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     position: 'relative',
                                     // Dynamic Ambilight Glow
                                     boxShadow: screenStream ? `0 0 60px ${color}88, 0 0 100px ${color}44` : 'none',
-                                    transition: 'box-shadow 0.1s ease', // Ultra-fast response
-                                    transform: 'perspective(1000px) rotateX(2deg)', // Subtle 3D tilt
+                                    transition: 'all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                                    transform: isCinemaMode ? 'scale(1.02)' : 'perspective(1000px) rotateX(2deg)',
+                                    zIndex: isCinemaMode ? 10 : 1
                                 }}>
                                     {screenStream ? (
                                         <>
@@ -598,36 +601,58 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                                 autoPlay
                                                 playsInline
                                                 muted
-                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                onClick={() => setIsCinemaMode(!isCinemaMode)}
+                                                style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'pointer' }}
+                                                title="Click to Toggle Cinema Mode"
                                             />
-                                            {/* LIVE Badge */}
-                                            <div style={{
-                                                position: 'absolute', top: '16px', right: '16px',
-                                                padding: '4px 12px', background: 'rgba(255,0,0,0.8)', color: 'white',
-                                                borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px',
-                                                boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                                                display: 'flex', alignItems: 'center', gap: '6px'
-                                            }}>
-                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'blink 1s infinite' }} />
-                                                LIVE
+
+                                            {/* Top Right Controls Group */}
+                                            <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', zIndex: 20 }}>
+                                                {/* LIVE Badge */}
+                                                <div style={{
+                                                    padding: '4px 12px', background: 'rgba(255,0,0,0.8)', color: 'white',
+                                                    borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px',
+                                                    boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                                }}>
+                                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'blink 1s infinite' }} />
+                                                    LIVE
+                                                </div>
+
+                                                {/* Cinema Toggle Button */}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setIsCinemaMode(!isCinemaMode); }}
+                                                    style={{
+                                                        background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
+                                                        borderRadius: '4px', color: 'white', padding: '4px', cursor: 'pointer',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}
+                                                    title={isCinemaMode ? "Exit Cinema Mode" : "Enter Cinema Mode"}
+                                                >
+                                                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                                                        {isCinemaMode ? 'fullscreen_exit' : 'fullscreen'}
+                                                    </span>
+                                                </button>
                                             </div>
 
-                                            {/* Detected Color Footer */}
-                                            <div style={{
-                                                position: 'absolute', bottom: '16px', left: '0', right: '0',
-                                                display: 'flex', justifyContent: 'center'
-                                            }}>
+                                            {/* Detected Color Footer (Hide in Cinema Mode for pure clean view, or keep minimal?) -> Keeping minimal */}
+                                            {!isCinemaMode && (
                                                 <div style={{
-                                                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-                                                    padding: '6px 16px', borderRadius: '100px',
-                                                    display: 'flex', alignItems: 'center', gap: '10px',
-                                                    border: '1px solid rgba(255,255,255,0.1)'
+                                                    position: 'absolute', bottom: '16px', left: '0', right: '0',
+                                                    display: 'flex', justifyContent: 'center', pointerEvents: 'none'
                                                 }}>
-                                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>SYNCING</span>
-                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-                                                    <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{color}</span>
+                                                    <div style={{
+                                                        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                                                        padding: '6px 16px', borderRadius: '100px',
+                                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                                        border: '1px solid rgba(255,255,255,0.1)'
+                                                    }}>
+                                                        <span style={{ fontSize: '10px', opacity: 0.7 }}>SYNCING</span>
+                                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                                                        <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{color}</span>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
                                         </>
                                     ) : (
                                         <div className="flex-col" style={{ alignItems: 'center', gap: '16px', opacity: 0.4 }}>
@@ -642,57 +667,59 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     )}
                                 </div>
 
-                                {/* Info & Controls */}
-                                <div className="flex-col" style={{ alignItems: 'center', gap: '16px', width: '100%' }}>
-                                    {!screenStream && (
-                                        <div className="flex-col" style={{ alignItems: 'center', gap: '4px' }}>
-                                            <h2 style={{ fontSize: '20px', margin: 0 }}>Visual Sync</h2>
-                                            <p style={{ opacity: 0.6, fontSize: '12px', textAlign: 'center' }}>
-                                                Match lights to movies, games, or videos.
-                                            </p>
-                                        </div>
-                                    )}
+                                {/* Info & Controls - Hidden in Cinema Mode */}
+                                {!isCinemaMode && (
+                                    <div className="flex-col animate-in" style={{ alignItems: 'center', gap: '16px', width: '100%' }}>
+                                        {!screenStream && (
+                                            <div className="flex-col" style={{ alignItems: 'center', gap: '4px' }}>
+                                                <h2 style={{ fontSize: '20px', margin: 0 }}>Visual Sync</h2>
+                                                <p style={{ opacity: 0.6, fontSize: '12px', textAlign: 'center' }}>
+                                                    Match lights to movies, games, or videos.
+                                                </p>
+                                            </div>
+                                        )}
 
-                                    {!screenStream ? (
-                                        <button
-                                            onClick={startScreenShare}
-                                            className="btn-primary"
-                                            style={{
-                                                background: '#409eff',
-                                                padding: '14px 40px',
-                                                fontSize: '16px',
-                                                borderRadius: '12px',
-                                                border: 'none',
-                                                boxShadow: '0 8px 24px rgba(64, 158, 255, 0.25)',
-                                                display: 'flex', alignItems: 'center', gap: '8px',
-                                                transition: 'transform 0.2s'
-                                            }}
-                                            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
-                                        >
-                                            <span className="material-symbols-outlined">fit_screen</span>
-                                            Select Window
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={stopScreenShare}
-                                            className="btn-secondary"
-                                            style={{
-                                                padding: '12px 32px',
-                                                fontSize: '14px',
-                                                borderRadius: '12px',
-                                                border: '1px solid rgba(255, 77, 79, 0.5)',
-                                                color: '#ff4d4f',
-                                                background: 'rgba(255, 77, 79, 0.1)',
-                                                cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', gap: '8px'
-                                            }}
-                                        >
-                                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>stop_circle</span>
-                                            Stop Sync
-                                        </button>
-                                    )}
-                                </div>
+                                        {!screenStream ? (
+                                            <button
+                                                onClick={startScreenShare}
+                                                className="btn-primary"
+                                                style={{
+                                                    background: '#409eff',
+                                                    padding: '14px 40px',
+                                                    fontSize: '16px',
+                                                    borderRadius: '12px',
+                                                    border: 'none',
+                                                    boxShadow: '0 8px 24px rgba(64, 158, 255, 0.25)',
+                                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                                    transition: 'transform 0.2s'
+                                                }}
+                                                onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                            >
+                                                <span className="material-symbols-outlined">fit_screen</span>
+                                                Select Window
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={stopScreenShare}
+                                                className="btn-secondary"
+                                                style={{
+                                                    padding: '12px 32px',
+                                                    fontSize: '14px',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid rgba(255, 77, 79, 0.5)',
+                                                    color: '#ff4d4f',
+                                                    background: 'rgba(255, 77, 79, 0.1)',
+                                                    cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', gap: '8px'
+                                                }}
+                                            >
+                                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>stop_circle</span>
+                                                Stop Sync
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
