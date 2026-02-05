@@ -14,14 +14,11 @@ const useDebounce = (effect, delay, deps) => {
 };
 
 export function ColorController({ devices, selectedDeviceIds, onToggleDevice, token, secret, spotifyToken, spotifyClientId, onOpenSettings, onTokenExpired }) {
-    // Filter active devices based on selection
+    // Filter active devices
     const activeDevices = devices.filter(d => selectedDeviceIds.includes(d.deviceId));
-
-    // Use a Ref to track offline devices and avoid re-renders or dependency loops
-    // Map: deviceId -> timestamp (when it can be retried)
     const offlineDevices = useRef(new Map());
 
-    // Local state for UI responsiveness (tracked against the first ACTIVE device)
+    // State
     const [power, setPower] = useState(true);
     const [brightness, setBrightness] = useState(100);
     const [color, setColor] = useState("#ffffff");
@@ -29,52 +26,46 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     const [activeTab, setActiveTab] = useState('color');
     const [loading, setLoading] = useState(false);
 
-    // Spotify State
+    // Spotify / Sync State
     const [track, setTrack] = useState(null);
-    const [audioFeatures, setAudioFeatures] = useState(null);
     const [autoSync, setAutoSync] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    // Responsive State
+    // UI Mode
     const isMobile = useIsMobile();
     const [mobileTab, setMobileTab] = useState('visual'); // 'visual' | 'control'
-
-    // Sync Mode: 'spotify' or 'screen'
     const [syncMode, setSyncMode] = useState('spotify'); // 'spotify' | 'screen'
-    const [isCinemaMode, setIsCinemaMode] = useState(false);
+    const [isCinemaMode, setIsCinemaMode] = useState(false); // Desktop only feature really
 
-    // NEW: Use the robust hook
+    // Screen Sync Hook
     const { startShare, stopShare, isSharing, stream, extractedColor, debugInfo, videoRef } = useScreenSync();
 
-    // Syncextracted color to main state & API
+    // --- SYNC LOGIC (Copied from previous) ---
+    const lastCommandTime = useRef(0);
+    const colorDebounceTimer = useRef(null);
+
+    // 1. Handle Extracted Color (Auto Sync)
     useEffect(() => {
         if (isSharing && extractedColor) {
-            // 1. Update UI immediately
             if (extractedColor !== color) {
                 setColor(extractedColor);
             }
-
-            // 2. Throttle API Calls (1.5s)
             const now = Date.now();
             if (now - lastCommandTime.current > 1500) {
                 lastCommandTime.current = now;
-
                 const r = parseInt(extractedColor.slice(1, 3), 16);
                 const g = parseInt(extractedColor.slice(3, 5), 16);
                 const b = parseInt(extractedColor.slice(5, 7), 16);
                 const parameter = `${r}:${g}:${b}`;
 
                 if (activeDevices.length > 0 && token && secret) {
-                    // Check Offline Status before sending
                     const validDevices = activeDevices.filter(d => {
                         if (offlineDevices.current.has(d.deviceId)) {
-                            const blockedUntil = offlineDevices.current.get(d.deviceId);
-                            if (now < blockedUntil) return false;
-                            offlineDevices.current.delete(d.deviceId); // Retry allowed
+                            if (now < offlineDevices.current.get(d.deviceId)) return false;
+                            offlineDevices.current.delete(d.deviceId);
                         }
                         return true;
                     });
-
                     if (validDevices.length === 0) return;
 
                     Promise.all(validDevices.map(async (d) => {
@@ -82,10 +73,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                             await switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter);
                         } catch (e) {
                             if (e.message && e.message.includes("offline")) {
-                                console.warn(`Device ${d.deviceName} is offline. Backing off for 60s.`);
                                 offlineDevices.current.set(d.deviceId, Date.now() + 60000);
-                            } else {
-                                console.warn("Sync error:", e);
                             }
                         }
                     }));
@@ -94,7 +82,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         }
     }, [extractedColor, isSharing, activeDevices, token, secret]);
 
-    // Sync status on mount (from first ACTIVE device)
+    // 2. Fetch Initial Status
     useEffect(() => {
         if (activeDevices.length > 0) fetchStatus();
     }, [activeDevices[0]?.deviceId]);
@@ -108,84 +96,47 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 setBrightness(status.brightness);
                 if (status.color) {
                     const [r, g, b] = status.color.split(':');
-                    const hex = '#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
-                    setColor(hex);
+                    setColor('#' + [r, g, b].map(x => parseInt(x).toString(16).padStart(2, '0')).join(''));
                     setActiveTab('color');
                 } else if (status.colorTemperature) {
                     setColorTemp(status.colorTemperature);
                     setActiveTab('white');
                 }
             }
-        } catch (e) {
-            console.error("Status fetch error:", e);
-        }
+        } catch (e) { console.error(e); }
     };
 
-    // Auto-Sync Polling
+    // 3. Spotify Polling
     useEffect(() => {
         let interval;
-        if (autoSync && power) {
-            if (syncMode === 'spotify' && spotifyToken) {
-                interval = setInterval(() => {
-                    syncWithSpotify(true); // silent sync
-                }, 5000);
-            }
-            // Screen Sync API throttling is handled in the effect above
+        if (autoSync && power && syncMode === 'spotify' && spotifyToken) {
+            interval = setInterval(() => syncWithSpotify(true), 5000);
         }
         return () => clearInterval(interval);
     }, [autoSync, spotifyToken, track?.id, syncMode, power]);
 
-    // Handle Tab/Mode Switching
-    useEffect(() => {
-        if (syncMode === 'spotify' && isSharing) {
-            stopShare();
-        }
-    }, [syncMode]);
-
-
-    // --- Spotify Sync Logic ---
+    // Logic Helpers
     const syncWithSpotify = async (silent = false) => {
         if (syncMode !== 'spotify') return;
-
         if (!spotifyToken) {
             if (!silent) {
-                if (!spotifyClientId) {
-                    alert("Please set Spotify Client ID in settings first.");
-                    onOpenSettings && onOpenSettings();
-                    return;
-                }
+                if (!spotifyClientId) { onOpenSettings && onOpenSettings(); return; }
                 const redirectUri = window.location.origin + window.location.pathname;
                 spotifyApi.login(spotifyClientId.trim(), redirectUri);
             }
             return;
         }
-
         const result = await spotifyApi.getCurrentTrack(spotifyToken);
-
         if (!result.success) {
-            if (result.status === 401) {
-                console.warn("Spotify Token Expired or Unauthorized");
-                localStorage.removeItem('spotify_access_token');
-                if (onTokenExpired) onTokenExpired();
-                return;
-            }
-            if (!silent && result.status !== 0) {
-                console.error("Spotify Sync Error:", result.error);
-            }
+            if (result.status === 401) { localStorage.removeItem('spotify_access_token'); if (onTokenExpired) onTokenExpired(); }
             return;
         }
-
         let data = result.data;
         let isFallback = false;
-
         if (!data || !data.item) {
             const recent = await spotifyApi.getRecentlyPlayed(spotifyToken);
-            if (recent) {
-                data = { item: recent, is_playing: false };
-                isFallback = true;
-            }
+            if (recent) { data = { item: recent, is_playing: false }; isFallback = true; }
         }
-
         if (data && data.item) {
             setIsPlaying(data.is_playing);
             if (!track || track.id !== data.item.id) {
@@ -193,14 +144,9 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 const imageUrl = data.item.album.images[0]?.url;
                 if (imageUrl) {
                     const domColor = await extractColorFromImage(imageUrl);
-                    if (domColor) {
-                        setColor(domColor);
-                        setActiveTab('color');
-                    }
+                    if (domColor) { setColor(domColor); setActiveTab('color'); }
                 }
             }
-        } else if (!silent) {
-            alert("No music playing and no history found.");
         }
     };
 
@@ -208,105 +154,285 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         try {
             if (action === 'next') await spotifyApi.nextTrack(spotifyToken);
             if (action === 'prev') await spotifyApi.previousTrack(spotifyToken);
-            if (action === 'toggle') {
-                await spotifyApi.togglePlay(spotifyToken, isPlaying);
-                setIsPlaying(!isPlaying);
-            }
+            if (action === 'toggle') { await spotifyApi.togglePlay(spotifyToken, isPlaying); setIsPlaying(!isPlaying); }
             setTimeout(() => syncWithSpotify(true), 500);
         } catch (e) {
-            console.error("Playback error:", e);
+            console.error(e);
         }
     };
 
     const handleArtClick = async (e) => {
         if (!track || !track.album.images[0]) return;
         const rect = e.target.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const hex = await getPixelColorFromImage(track.album.images[0].url, x, y, e.target);
-        if (hex) {
-            setColor(hex);
-            setActiveTab('color');
-        }
+        const hex = await getPixelColorFromImage(track.album.images[0].url, e.clientX - rect.left, e.clientY - rect.top, e.target);
+        if (hex) { setColor(hex); setActiveTab('color'); }
     };
 
     const togglePower = async () => {
         if (activeDevices.length === 0) return;
         setLoading(true);
-        const nextPower = !power;
         try {
-            const cmd = nextPower ? 'turnOn' : 'turnOff';
-            await Promise.all(activeDevices.map(d =>
-                switchbotApi.sendCommand(token, secret, d.deviceId, cmd)
-            ));
-            setPower(nextPower);
-        } catch (err) {
-            alert("Failed to toggle power");
-        } finally {
-            setLoading(false);
-        }
+            await Promise.all(activeDevices.map(d => switchbotApi.sendCommand(token, secret, d.deviceId, power ? 'turnOff' : 'turnOn')));
+            setPower(!power);
+        } catch (err) { alert("Failed to toggle power"); } finally { setLoading(false); }
     };
 
-    // Debounced Brightness
+    // Debouncers
     useDebounce(async () => {
         if (activeDevices.length === 0) return;
-        try {
-            await Promise.all(activeDevices.map(d =>
-                switchbotApi.sendCommand(token, secret, d.deviceId, 'setBrightness', brightness.toString())
-            ));
-        } catch (e) { console.error(e); }
+        await Promise.all(activeDevices.map(d => switchbotApi.sendCommand(token, secret, d.deviceId, 'setBrightness', brightness.toString()))).catch(console.error);
     }, 500, [brightness, activeDevices]);
 
-    // Debounced Color Temp
     useDebounce(async () => {
         if (activeDevices.length === 0 || activeTab !== 'white') return;
-        try {
-            await Promise.all(activeDevices.map(d =>
-                switchbotApi.sendCommand(token, secret, d.deviceId, 'setColorTemperature', colorTemp.toString())
-            ));
-        } catch (e) { console.error(e); }
+        await Promise.all(activeDevices.map(d => switchbotApi.sendCommand(token, secret, d.deviceId, 'setColorTemperature', colorTemp.toString()))).catch(console.error);
     }, 500, [colorTemp, activeTab, activeDevices]);
 
-    // Manual Color
-    const lastCommandTime = useRef(0);
-    const colorDebounceTimer = useRef(null);
+    // Manual Color (Debounced)
     useEffect(() => {
-        if (activeDevices.length === 0 || activeTab !== 'color') return;
-        if (syncMode === 'screen') return;
-
+        if (activeDevices.length === 0 || activeTab !== 'color' || syncMode === 'screen') return;
         if (colorDebounceTimer.current) clearTimeout(colorDebounceTimer.current);
 
         colorDebounceTimer.current = setTimeout(async () => {
             const r = parseInt(color.slice(1, 3), 16);
             const g = parseInt(color.slice(3, 5), 16);
             const b = parseInt(color.slice(5, 7), 16);
-            const parameter = `${r}:${g}:${b}`;
-            try {
-                // Check offline before sending (Manual)
-                const now = Date.now();
-                const validDevices = activeDevices.filter(d => {
-                    if (offlineDevices.current.has(d.deviceId)) {
-                        if (now < offlineDevices.current.get(d.deviceId)) return false;
-                        offlineDevices.current.delete(d.deviceId);
-                    }
-                    return true;
-                });
-                if (validDevices.length === 0) return;
+            const validDevices = activeDevices.filter(d => !offlineDevices.current.has(d.deviceId) || Date.now() > offlineDevices.current.get(d.deviceId));
+            if (validDevices.length === 0) return;
 
-                await Promise.all(validDevices.map(d =>
-                    switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
-                ));
-            } catch (e) { console.error(e); }
+            await Promise.all(validDevices.map(d => switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', `${r}:${g}:${b}`))).catch(console.error);
         }, 500);
 
         return () => clearTimeout(colorDebounceTimer.current);
     }, [color, activeTab, activeDevices, syncMode]);
 
 
-    // RENDER HELPERS
+    // ====================================================================================
+    //                                  MOBILE LAYOUT
+    // ====================================================================================
+    if (isMobile) {
+        return (
+            <div style={{
+                position: 'fixed', inset: 0,
+                background: '#0a0a0a',
+                color: 'white',
+                display: 'flex', flexDirection: 'column',
+                zIndex: 9999, // Ensure it sits on top of everything
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+            }}>
+                {/* 1. APP HEADER */}
+                <div style={{
+                    height: '60px', padding: '0 20px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'rgba(10,10,10,0.8)', backdropFilter: 'blur(10px)',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    zIndex: 10, flexShrink: 0
+                }}>
+                    <div style={{ fontSize: '20px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ color: '#1DB954' }}>Spoti</span>Bot
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={fetchStatus} style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>refresh</span>
+                        </button>
+                        <button onClick={onOpenSettings} style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>settings</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* 2. SCROLLABLE CONTENT AREA */}
+                <div style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    padding: '24px',
+                    paddingBottom: '140px', // Extra space for floating nav
+                    display: 'flex', flexDirection: 'column'
+                }}>
+                    {mobileTab === 'visual' ? (
+                        // ================= VISUAL TAB =================
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '32px', minHeight: '100%' }}>
+
+                            {/* Source Switcher */}
+                            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '100px', padding: '4px' }}>
+                                <button onClick={() => { setSyncMode('spotify'); if (isSharing) stopShare(); }}
+                                    style={{ padding: '8px 24px', borderRadius: '100px', border: 'none', background: syncMode === 'spotify' ? 'rgba(29, 185, 84, 0.2)' : 'transparent', color: syncMode === 'spotify' ? '#1DB954' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: '14px', transition: 'all 0.2s' }}>
+                                    Spotify
+                                </button>
+                                <button onClick={() => setSyncMode('screen')}
+                                    style={{ padding: '8px 24px', borderRadius: '100px', border: 'none', background: syncMode === 'screen' ? 'rgba(64, 158, 255, 0.2)' : 'transparent', color: syncMode === 'screen' ? '#409eff' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: '14px', transition: 'all 0.2s' }}>
+                                    Screen
+                                </button>
+                            </div>
+
+                            {/* Content Display */}
+                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                {syncMode === 'spotify' ? (
+                                    track ? (
+                                        <>
+                                            <div style={{
+                                                width: '80vw', maxWidth: '320px', aspectRatio: '1/1',
+                                                borderRadius: '24px', overflow: 'hidden',
+                                                boxShadow: `0 20px 60px ${color || 'rgba(0,0,0)'}`, // Dynamic Glow
+                                                position: 'relative', marginBottom: '32px'
+                                            }}>
+                                                <img src={track.album.images[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={handleArtClick} />
+                                            </div>
+
+                                            <div style={{ textAlign: 'center', width: '100%', marginBottom: '32px' }}>
+                                                <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', lineHeight: 1.2 }}>{track.name}</h2>
+                                                <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>{track.artists.map(a => a.name).join(', ')}</p>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+                                                <button onClick={() => handlePlayback('prev')} style={{ background: 'none', border: 'none', color: 'white', opacity: 0.7 }}><span className="material-symbols-outlined" style={{ fontSize: '48px' }}>skip_previous</span></button>
+                                                <button onClick={() => handlePlayback('toggle')} style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'white', border: 'none', color: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 30px rgba(255,255,255,0.3)' }}>
+                                                    <span className="material-symbols-outlined" style={{ fontSize: '40px' }}>{isPlaying ? 'pause' : 'play_arrow'}</span>
+                                                </button>
+                                                <button onClick={() => handlePlayback('next')} style={{ background: 'none', border: 'none', color: 'white', opacity: 0.7 }}><span className="material-symbols-outlined" style={{ fontSize: '48px' }}>skip_next</span></button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div style={{ opacity: 0.5, textAlign: 'center', padding: '40px' }}>
+                                            <span className="material-symbols-outlined" style={{ fontSize: '64px', marginBottom: '16px' }}>music_off</span>
+                                            <div>Waiting for Spotify...</div>
+                                        </div>
+                                    )
+                                ) : (
+                                    // Screen Sync
+                                    <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: '16px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'contain', display: isSharing ? 'block' : 'none' }} />
+                                        {!isSharing && (
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: '48px', opacity: 0.5 }}>desktop_windows</span>
+                                                <button onClick={startScreenShare} className="btn-primary" style={{ padding: '12px 24px', fontSize: '14px' }}>Start Casting</button>
+                                            </div>
+                                        )}
+                                        {isSharing && <button onClick={stopScreenShare} style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', padding: '8px 20px', background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none', borderRadius: '100px', fontWeight: 'bold', fontSize: '12px' }}>STOP SYNC</button>}
+                                        {isSharing && <div style={{ position: 'absolute', top: 12, left: 12, fontSize: '10px', fontFamily: 'monospace', color: '#0f0', background: 'rgba(0,0,0,0.5)', padding: '2px 6px', borderRadius: '4px' }}>{debugInfo}</div>}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        // ================= CONTROLS TAB =================
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            {/* Device Chips */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {devices.map(d => (
+                                    <button key={d.deviceId} onClick={() => onToggleDevice(d.deviceId)}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '100px', fontSize: '13px',
+                                            background: selectedDeviceIds.includes(d.deviceId) ? '#1DB954' : 'rgba(255,255,255,0.08)',
+                                            color: selectedDeviceIds.includes(d.deviceId) ? 'white' : 'rgba(255,255,255,0.6)',
+                                            border: selectedDeviceIds.includes(d.deviceId) ? '1px solid #1DB954' : '1px solid rgba(255,255,255,0.1)',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                        {d.deviceName}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Power Toggle */}
+                            <button onClick={togglePower} disabled={activeDevices.length === 0}
+                                style={{
+                                    width: '100%', padding: '24px', borderRadius: '24px',
+                                    background: power ? '#1DB954' : 'rgba(255,255,255,0.05)',
+                                    color: 'white', border: 'none', fontSize: '20px', fontWeight: 'bold',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
+                                    boxShadow: power ? '0 10px 40px rgba(29, 185, 84, 0.3)' : 'none',
+                                    transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                                }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>power_settings_new</span>
+                                {power ? 'Turn Off' : 'Turn On'}
+                            </button>
+
+                            {/* Sliders Block */}
+                            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '24px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                {/* Brightness */}
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '14px', fontWeight: '600', opacity: 0.8 }}>
+                                        <span>Brightness</span><span>{brightness}%</span>
+                                    </div>
+                                    <input type="range" min="1" max="100" value={brightness} onChange={(e) => setBrightness(parseInt(e.target.value))}
+                                        style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', outline: 'none' }}
+                                        className="custom-range" // You might need global CSS for proper thumb styling
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Color Block */}
+                            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '24px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '4px' }}>
+                                    <button onClick={() => setActiveTab('color')} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: activeTab === 'color' ? 'rgba(255,255,255,0.15)' : 'transparent', color: 'white', fontWeight: '600', fontSize: '14px' }}>RGB</button>
+                                    <button onClick={() => setActiveTab('white')} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: activeTab === 'white' ? 'rgba(255,255,255,0.15)' : 'transparent', color: 'white', fontWeight: '600', fontSize: '14px' }}>White</button>
+                                </div>
+
+                                {activeTab === 'color' ? (
+                                    <>
+                                        <div style={{ height: '280px', width: '100%', borderRadius: '16px', overflow: 'hidden' }}>
+                                            <HexColorPicker color={color} onChange={setColor} style={{ width: '100%', height: '100%' }} />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 8px' }}>
+                                            {['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#ff00ff', '#ffff00', '#1DB954'].map(c => (
+                                                <button key={c} onClick={() => setColor(c)} style={{ width: '40px', height: '40px', borderRadius: '50%', background: c, border: color === c ? '3px solid white' : '1px solid rgba(255,255,255,0.1)' }} />
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div style={{ padding: '40px 0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '12px', opacity: 0.5 }}>
+                                            <span>Warm (2700K)</span><span>Cool (6500K)</span>
+                                        </div>
+                                        <div style={{ position: 'relative', height: '40px', display: 'flex', alignItems: 'center' }}>
+                                            <div style={{ position: 'absolute', left: 0, right: 0, height: '16px', borderRadius: '8px', background: 'linear-gradient(to right, #ffb157, #ffffff, #d6e4ff)' }} />
+                                            <input type="range" min="2700" max="6500" step="100" value={colorTemp} onChange={(e) => setColorTemp(parseInt(e.target.value))} style={{ width: '100%', position: 'relative', zIndex: 1, opacity: 0.8 }} />
+                                        </div>
+                                        <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '24px', fontWeight: 'bold' }}>{colorTemp}K</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 3. FLOATING BOTTOM NAV */}
+                <div style={{
+                    position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
+                    width: '90%', maxWidth: '360px', height: '70px',
+                    background: 'rgba(20,20,20,0.85)', backdropFilter: 'blur(20px)',
+                    borderRadius: '100px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-evenly',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+                    zIndex: 20
+                }}>
+                    <button onClick={() => setMobileTab('visual')} style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', color: mobileTab === 'visual' ? '#1DB954' : 'rgba(255,255,255,0.4)', transition: 'all 0.2s' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}>music_note</span>
+                        <span style={{ fontSize: '10px', fontWeight: '600' }}>Visuals</span>
+                    </button>
+
+                    <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }} />
+
+                    <button onClick={() => setMobileTab('control')} style={{ background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', color: mobileTab === 'control' ? '#1DB954' : 'rgba(255,255,255,0.4)', transition: 'all 0.2s' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}>tv_remote</span>
+                        <span style={{ fontSize: '10px', fontWeight: '600' }}>Remote</span>
+                    </button>
+                </div>
+
+            </div>
+        );
+    }
+
+    // ====================================================================================
+    //                                  DESKTOP LAYOUT (Legacy)
+    // ====================================================================================
+
+    // Helper functions for desktop...
     const renderVisualPanel = () => (
         <div className="card flex-1" style={{
-            flex: isMobile ? '1' : '1.5',
+            flex: '1.5',
             padding: '0',
             position: 'relative',
             overflow: 'hidden',
@@ -316,11 +442,6 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             alignItems: 'center',
             background: 'var(--glass-bg)',
             borderColor: autoSync ? 'rgba(29, 185, 84, 0.4)' : 'var(--glass-border)',
-            minHeight: isMobile ? '0' : undefined, // Allow shrinking on mobile
-            height: isMobile ? '100%' : undefined,
-            // Mobile specific: Ensure bottom bar doesn't cover content if we had scroll, 
-            // but visuals shouldn't scroll. We just need space.
-            marginBottom: isMobile ? '80px' : '0'
         }}>
             {/* Inner Glow */}
             <div style={{
@@ -331,10 +452,10 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             }} />
 
             {/* Content Layer */}
-            <div style={{ zIndex: 1, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '24px', overflowY: isMobile ? 'auto' : 'visible' }}>
+            <div style={{ zIndex: 1, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '24px' }}>
 
                 {/* Sync Source Toggle */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', gap: '8px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', gap: '8px' }}>
                     <button
                         onClick={() => { setSyncMode('spotify'); if (screenStream) stopScreenShare(); }}
                         style={{
@@ -363,7 +484,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                     spotifyToken ? (
                         <>
                             {track ? (
-                                <div className="animate-in flex-col" style={{ flex: 1, gap: '20px', justifyContent: 'space-between', height: '100%', minHeight: '0' }}>
+                                <div className="animate-in flex-col" style={{ flex: 1, gap: '20px', justifyContent: 'space-between', height: '100%' }}>
 
                                     <div style={{
                                         flex: 1,
@@ -378,7 +499,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                             position: 'relative',
                                             height: '100%',
                                             aspectRatio: '1/1',
-                                            maxHeight: isMobile ? '40vh' : '45vh', // Adjusted for mobile
+                                            maxHeight: '45vh',
                                             maxWidth: '100%',
                                             borderRadius: '12px',
                                             boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
@@ -410,7 +531,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     </div>
 
                                     {/* Track Info */}
-                                    <div className="flex-col" style={{ gap: '4px', width: '100%', flexShrink: 0 }}>
+                                    <div className="flex-col" style={{ gap: '4px', width: '100%' }}>
                                         <div style={{ fontSize: '24px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
                                             {track.name}
                                         </div>
@@ -527,8 +648,8 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     const renderControlsPanel = () => (
         <div className="card" style={{
             flex: '1',
-            minWidth: isMobile ? '100%' : '320px',
-            maxWidth: isMobile ? '100%' : '600px',
+            minWidth: '320px',
+            maxWidth: '600px',
             padding: '32px',
             background: 'var(--glass-bg)',
             display: 'flex',
@@ -536,9 +657,6 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             zIndex: 2,
             justifyContent: 'flex-start',
             gap: '24px',
-            // Add bottom margin for nav bar, AND allow scrolling
-            marginBottom: isMobile ? '80px' : '0',
-            overflowY: 'auto'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '14px', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -764,82 +882,22 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             </div>
 
             {/* Header / Info Bar */}
-            <div className="flex-row justify-between w-full" style={{ padding: '0 8px', height: '40px', alignItems: 'center' }}>
-                {/* Mobile Logo (Visible only if main app header is scrolled out or hidden) */}
-                <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, opacity: 0.9, display: isMobile ? 'block' : 'none' }}>
-                    <span style={{ color: 'var(--primary-color)' }}>Spoti</span>Bot
-                </h1>
-
-                {/* Spacer if not mobile to push button right */}
-                {!isMobile && <div style={{ flex: 1 }}></div>}
-
+            <div className="flex-row justify-end w-full" style={{ padding: '0 8px', height: '40px' }}>
                 <button onClick={fetchStatus} className="btn-icon-playback" title="Refresh Status" style={{ fontSize: '16px', opacity: 0.8, padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }}>
                     <span className="material-symbols-outlined">refresh</span>
                 </button>
             </div>
 
             {/* MAIN LAYOUT */}
-            <div className={isMobile ? "flex-col" : "flex-row"} style={{ gap: '24px', flex: 1, minHeight: 0, alignItems: 'stretch' }}>
+            <div className="flex-row" style={{ gap: '24px', flex: 1, minHeight: 0, alignItems: 'stretch' }}>
 
-                {/* Visual Panel - Show if Desktop OR if Mobile Tab is 'visual' */}
-                {(!isMobile || mobileTab === 'visual') && renderVisualPanel()}
+                {/* Visual Panel */}
+                {renderVisualPanel()}
 
-                {/* Controls Panel - Show if Desktop OR if Mobile Tab is 'control' */}
-                {(!isMobile || mobileTab === 'control') && renderControlsPanel()}
+                {/* Controls Panel */}
+                {renderControlsPanel()}
 
             </div>
-
-            {/* MOBILE BOTTOM NAVIGATION BAR */}
-            {isMobile && (
-                <div style={{
-                    position: 'fixed',
-                    bottom: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '90%',
-                    maxWidth: '400px',
-                    height: '60px',
-                    background: 'rgba(20, 20, 20, 0.8)',
-                    backdropFilter: 'blur(20px)',
-                    borderRadius: '30px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-evenly',
-                    zIndex: 100,
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-                }}>
-                    <button
-                        onClick={() => setMobileTab('visual')}
-                        style={{
-                            background: 'transparent',
-                            color: mobileTab === 'visual' ? 'var(--primary-color)' : 'rgba(255,255,255,0.4)',
-                            border: 'none',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>music_note</span>
-                        <span style={{ fontSize: '10px', fontWeight: 'bold' }}>Visuals</span>
-                    </button>
-
-                    <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.1)' }} />
-
-                    <button
-                        onClick={() => setMobileTab('control')}
-                        style={{
-                            background: 'transparent',
-                            color: mobileTab === 'control' ? 'var(--primary-color)' : 'rgba(255,255,255,0.4)',
-                            border: 'none',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>tune</span>
-                        <span style={{ fontSize: '10px', fontWeight: 'bold' }}>Remote</span>
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
