@@ -290,6 +290,8 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
 
     // --- Refs for Stale Closure Prevention in Sync Loop ---
     const stateRef = useRef({ activeDevices: [], token: null, secret: null, color: '#000000', syncMode: 'spotify' });
+    const canvasRef = useRef(null); // Reuse canvas
+    const [debugInfo, setDebugInfo] = useState(''); // Debug overlay text
 
     // Keep Refs synchronized with latest state
     useEffect(() => {
@@ -322,54 +324,84 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         };
     }, [autoSync, spotifyToken, track?.id, syncMode, screenStream, power]);
 
-    // --- Screen Sync Logic ---
+    // --- Screen Sync Logic (ROBUST REWRITE 2.0) ---
     // ... (start/stopScreenShare reused) ...
 
     const syncWithScreen = () => {
-        if (!screenStream || !screenPreviewRef) return;
+        if (!screenStream || !screenPreviewRef) {
+            setDebugInfo("Waiting for stream...");
+            return;
+        }
 
         const video = screenPreviewRef;
-        if (video.readyState !== 4 && video.readyState !== 3) return;
+        if (video.readyState < 2) {
+            setDebugInfo(`Video Loading... (State: ${video.readyState})`);
+            return;
+        }
 
-        // 1. Extract Color (Fast)
-        const canvas = document.createElement('canvas');
-        canvas.width = 50;
-        canvas.height = 50;
+        // 1. Setup Canvas (Reused)
+        if (!canvasRef.current) {
+            canvasRef.current = document.createElement('canvas');
+            canvasRef.current.width = 50;
+            canvasRef.current.height = 50;
+        }
+        const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        try {
+            // 2. Draw & Extract
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-        import('../utils/color').then(({ calculateVibrantColor }) => {
-            const vibrantHex = calculateVibrantColor(imageData);
+            // 3. Simple Average Calculation (No "Vibrant" logic - Failsafe)
+            let sumR = 0, sumG = 0, sumB = 0;
+            let count = 0;
 
-            // Access LATEST state from Ref
+            for (let i = 0; i < imageData.length; i += 4) {
+                sumR += imageData[i];
+                sumG += imageData[i + 1];
+                sumB += imageData[i + 2];
+                count++;
+            }
+
+            const avgR = Math.round(sumR / count);
+            const avgG = Math.round(sumG / count);
+            const avgB = Math.round(sumB / count);
+
+            // Helper: RGB to Hex
+            const toHex = (c) => {
+                const hex = c.toString(16);
+                return hex.length === 1 ? "0" + hex : hex;
+            };
+            const hexColor = `#${toHex(avgR)}${toHex(avgG)}${toHex(avgB)}`;
+
+            // Debug Data
             const { activeDevices, token, secret, color } = stateRef.current;
+            setDebugInfo(`Video: ${video.videoWidth}x${video.videoHeight} | RGB: ${avgR},${avgG},${avgB} | Hex: ${hexColor}`);
 
-            if (vibrantHex && vibrantHex !== color) {
-                // 2. UI Update (Always Instant)
-                setColor(vibrantHex);
+            if (hexColor && hexColor !== color) {
+                // 4. UI Update
+                setColor(hexColor);
                 setActiveTab('color');
 
-                // 3. Device Update (Throttled to ~1.5s)
+                // 5. Throttled Device Update
                 const now = Date.now();
                 if (now - lastCommandTime.current > 1500) {
-                    lastCommandTime.current = now; // update first to prevent double-fire
+                    lastCommandTime.current = now;
 
-                    const r = parseInt(vibrantHex.slice(1, 3), 16);
-                    const g = parseInt(vibrantHex.slice(3, 5), 16);
-                    const b = parseInt(vibrantHex.slice(5, 7), 16);
-                    const parameter = `${r}:${g}:${b}`;
+                    const parameter = `${avgR}:${avgG}:${avgB}`;
 
-                    // Fire and forget (don't await in loop)
                     if (activeDevices.length > 0 && token && secret) {
                         Promise.all(activeDevices.map(d =>
                             switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter)
-                        )).catch(e => console.warn("Throttled sync error:", e));
+                        )).catch(e => console.warn("Sync error:", e));
                     }
                 }
             }
-        });
+
+        } catch (e) {
+            setDebugInfo(`Error: ${e.message}`);
+        }
     };
 
     // ... (Spotify Sync reused) ...
@@ -604,6 +636,17 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                 }}>
                                     {screenStream ? (
                                         <>
+                                            {/* Debug Info Overlay */}
+                                            <div style={{
+                                                position: 'absolute', top: '50px', left: '16px',
+                                                background: 'rgba(0,0,0,0.8)', color: '#0f0',
+                                                fontFamily: 'monospace', fontSize: '10px',
+                                                padding: '4px 8px', borderRadius: '4px',
+                                                pointerEvents: 'none', zIndex: 100
+                                            }}>
+                                                {debugInfo}
+                                            </div>
+
                                             <video
                                                 ref={(el) => {
                                                     if (el) {
