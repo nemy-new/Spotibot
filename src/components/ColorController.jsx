@@ -11,12 +11,53 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     // NEW: Use the robust hook
     const { startShare, stopShare, isSharing, stream, extractedColor, debugInfo, videoRef } = useScreenSync();
 
-    // Syncextracted color to main state
+    // Syncextracted color to main state & API
     useEffect(() => {
-        if (isSharing && extractedColor && extractedColor !== color) {
-            setColor(extractedColor);
+        if (isSharing && extractedColor) {
+            // 1. Update UI immediately
+            if (extractedColor !== color) {
+                setColor(extractedColor);
+            }
+
+            // 2. Throttle API Calls (1.5s)
+            const now = Date.now();
+            if (now - lastCommandTime.current > 1500) {
+                lastCommandTime.current = now;
+
+                const r = parseInt(extractedColor.slice(1, 3), 16);
+                const g = parseInt(extractedColor.slice(3, 5), 16);
+                const b = parseInt(extractedColor.slice(5, 7), 16);
+                const parameter = `${r}:${g}:${b}`;
+
+                if (activeDevices.length > 0 && token && secret) {
+                    // Check Offline Status before sending
+                    const validDevices = activeDevices.filter(d => {
+                        if (offlineDevices.current.has(d.deviceId)) {
+                            const blockedUntil = offlineDevices.current.get(d.deviceId);
+                            if (now < blockedUntil) return false;
+                            offlineDevices.current.delete(d.deviceId); // Retry allowed
+                        }
+                        return true;
+                    });
+
+                    if (validDevices.length === 0) return;
+
+                    Promise.all(validDevices.map(async (d) => {
+                        try {
+                            await switchbotApi.sendCommand(token, secret, d.deviceId, 'setColor', parameter);
+                        } catch (e) {
+                            if (e.message && e.message.includes("offline")) {
+                                console.warn(`Device ${d.deviceName} is offline. Backing off for 60s.`);
+                                offlineDevices.current.set(d.deviceId, Date.now() + 60000);
+                            } else {
+                                console.warn("Sync error:", e);
+                            }
+                        }
+                    }));
+                }
+            }
         }
-    }, [extractedColor, isSharing]);
+    }, [extractedColor, isSharing, activeDevices, token, secret]);
 
     // Cinema Mode State
     const [isCinemaMode, setIsCinemaMode] = useState(false);
@@ -75,6 +116,10 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     export function ColorController({ devices, selectedDeviceIds, onToggleDevice, token, secret, spotifyToken, spotifyClientId, onOpenSettings, onTokenExpired }) {
         // Filter active devices based on selection
         const activeDevices = devices.filter(d => selectedDeviceIds.includes(d.deviceId));
+
+        // Use a Ref to track offline devices and avoid re-renders or dependency loops
+        // Map: deviceId -> timestamp (when it can be retried)
+        const offlineDevices = useRef(new Map());
 
         // Local state for UI responsiveness (tracked against the first ACTIVE device)
         const [power, setPower] = useState(true);

@@ -116,15 +116,23 @@ export const useScreenSync = () => {
         // "Bulletproof" Playback
         const playVideo = async () => {
             try {
-                await video.play();
+                if (video.paused) {
+                    await video.play();
+                }
                 // Check once playing
                 if (!loopRef.current) {
                     analysisLoop();
                 }
             } catch (e) {
-                if (e.name !== 'AbortError') console.warn("Playback failed", e);
+                // Completely suppress AbortError (common when switching streams or autoloading)
+                if (e.name !== 'AbortError') {
+                    console.warn("Playback failed", e);
+                }
             }
         };
+
+        // Ensure we don't pile up listeners
+        video.onloadedmetadata = null;
 
         // If metadata already loaded (rare but possible), play immediately
         if (video.readyState >= 1) {
