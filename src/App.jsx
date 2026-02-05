@@ -23,12 +23,16 @@ function App() {
   const [error, setError] = useState('');
 
   // Handle Spotify Auth (PKCE Flow)
+  const processedCode = React.useRef(null);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
 
-    if (code) {
+    if (code && processedCode.current !== code) {
       console.log("Debug: Code found, exchanging for token...");
+      processedCode.current = code;
+
       // For PKCE exchange we need the same redirect URI
       const redirectUri = window.location.origin + window.location.pathname;
 
@@ -45,6 +49,7 @@ function App() {
         .catch(err => {
           console.error("PKCE Token Exchange Failed:", err);
           setError("Login failed: " + err.message);
+          processedCode.current = null; // Allow retry if failed? Or maybe not.
         });
     }
   }, [spotifyClientId]);
@@ -137,7 +142,7 @@ function App() {
                   secret={secret}
                   spotifyToken={spotifyToken}
                   spotifyClientId={spotifyClientId}
-                  spotifyClientId={spotifyClientId}
+
                   onOpenSettings={() => setShowSettings(true)}
                   onTokenExpired={() => setSpotifyToken(null)}
                 />

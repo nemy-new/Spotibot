@@ -1,6 +1,7 @@
 import CryptoJS from 'crypto-js';
 
-const BASE_URL = '/api/switchbot/v1.1';
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+const BASE_URL = isElectron ? 'https://api.switch-bot.com/v1.1' : '/api/switchbot/v1.1';
 
 /**
  * Generate the Request Header as per SwitchBot API v1.1

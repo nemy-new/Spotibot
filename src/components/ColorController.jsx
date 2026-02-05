@@ -247,7 +247,36 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                         <div style={{ textAlign: 'center', width: '100%', marginBottom: '32px' }}>
                                             <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', lineHeight: 1.2 }}>{track.name}</h2>
                                             <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>{track.artists.map(a => a.name).join(', ')}</p>
+                                            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '4px', marginBottom: '12px' }}>
+                                                {track?.album?.name || 'Unknown Album'} • {track?.album?.release_date?.substring(0, 4) || '----'}
+                                            </p>
+
+                                            {/* Popularity */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6, marginBottom: '8px' }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>whatshot</span>
+                                                <div style={{ width: '100px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                    <div style={{ width: `${track?.popularity || 0}%`, height: '100%', background: '#1DB954' }} />
+                                                </div>
+                                            </div>
                                         </div>
+
+                                        {/* Audio Analysis Stats */}
+                                        {audioFeatures && (
+                                            <div style={{ display: 'flex', gap: '24px', marginBottom: '32px', background: 'rgba(255,255,255,0.05)', padding: '16px 24px', borderRadius: '16px', backdropFilter: 'blur(10px)' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '18px', fontWeight: '800', fontFamily: 'monospace' }}>{Math.round(audioFeatures.tempo)}</span>
+                                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>BPM</span>
+                                                </div>
+                                                <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '18px', fontWeight: '800' }}>{formatKey(audioFeatures.key, audioFeatures.mode)}</span>
+                                                    <span style={{ fontSize: '10px', opacity: 0.5 }}>KEY</span>
+                                                </div>
+                                                <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                                                <StatRing value={audioFeatures.danceability} label="DANCE" color="#1DB954" />
+                                                <StatRing value={audioFeatures.energy} label="NRG" color="#FFB157" />
+                                            </div>
+                                        )}
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
                                             <button onClick={() => handlePlayback('prev')} style={{ background: 'none', border: 'none', color: 'white', opacity: 0.7 }}><span className="material-symbols-outlined" style={{ fontSize: '48px' }}>skip_previous</span></button>
@@ -462,7 +491,46 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                     <div style={{ fontSize: '16px', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
                                         {track.artists.map(a => a.name).join(', ')}
                                     </div>
-                                    <div className="flex-row" style={{ gap: '48px', marginTop: '16px', justifyContent: 'center', width: '100%' }}>
+                                    <div style={{ fontSize: '14px', opacity: 0.5, marginTop: '4px', textAlign: 'center' }}>
+                                        {track?.album?.name || 'Unknown Album'} ({track?.album?.release_date?.substring(0, 4) || '----'})
+                                    </div>
+
+                                    {/* Popularity */}
+                                    <div className="flex-row" style={{ alignItems: 'center', gap: '8px', justifyContent: 'center', marginTop: '8px', opacity: 0.7 }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>local_fire_department</span>
+                                        <div style={{ width: '80px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${track?.popularity || 0}%`, height: '100%', background: '#1DB954' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* Desktop Stats */}
+                                    {audioFeatures && (
+                                        <div className="flex-row" style={{ justifyContent: 'center', gap: '32px', marginTop: '24px', opacity: 0.8 }}>
+                                            <div className="flex-col" style={{ alignItems: 'center' }}>
+                                                <span style={{ fontSize: '24px', fontWeight: '300' }}>{Math.round(audioFeatures.tempo)}</span>
+                                                <span style={{ fontSize: '10px', letterSpacing: '2px', opacity: 0.5 }}>BPM</span>
+                                            </div>
+                                            <div className="flex-col" style={{ alignItems: 'center' }}>
+                                                <span style={{ fontSize: '24px', fontWeight: '300' }}>{formatKey(audioFeatures.key, audioFeatures.mode)}</span>
+                                                <span style={{ fontSize: '10px', letterSpacing: '2px', opacity: 0.5 }}>KEY</span>
+                                            </div>
+                                            <div style={{ width: '1px', height: '40px', background: 'rgba(255,255,255,0.1)' }} />
+                                            <div className="flex-col" style={{ alignItems: 'center', gap: '4px' }}>
+                                                <div style={{ width: '60px', height: '4px', background: '#333', borderRadius: '2px', overflow: 'hidden' }}>
+                                                    <div style={{ width: `${audioFeatures.energy * 100}%`, height: '100%', background: '#ffb157' }} />
+                                                </div>
+                                                <span style={{ fontSize: '9px', opacity: 0.5 }}>ENERGY</span>
+                                            </div>
+                                            <div className="flex-col" style={{ alignItems: 'center', gap: '4px' }}>
+                                                <div style={{ width: '60px', height: '4px', background: '#333', borderRadius: '2px', overflow: 'hidden' }}>
+                                                    <div style={{ width: `${audioFeatures.valence * 100}%`, height: '100%', background: '#69b4ff' }} />
+                                                </div>
+                                                <span style={{ fontSize: '9px', opacity: 0.5 }}>MOOD</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex-row" style={{ gap: '48px', marginTop: '24px', justifyContent: 'center', width: '100%' }}>
                                         <button onClick={() => handlePlayback('prev')} className="btn-icon-playback" style={{ opacity: 0.7 }}>
                                             <span className="material-symbols-outlined" style={{ fontSize: '40px' }}>skip_previous</span>
                                         </button>
@@ -697,13 +765,14 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 <div style={{
                     height: '60px', padding: '0 32px',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    zIndex: 10
+                    zIndex: 10,
+                    WebkitAppRegion: 'drag' // Allow dragging window
                 }}>
-                    <div style={{ fontSize: '20px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#1DB954' }} />
+                    <div style={{ fontSize: '24px', fontWeight: '700', fontFamily: 'Quicksand, sans-serif', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <img src="./src/assets/logo.png" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
                         <span>SpotiBot</span>
                     </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', gap: '16px', WebkitAppRegion: 'no-drag' /* Buttons clickable */ }}>
                         <button onClick={fetchStatus} className="btn-icon" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
                             <span className="material-symbols-outlined">refresh</span>
                         </button>
