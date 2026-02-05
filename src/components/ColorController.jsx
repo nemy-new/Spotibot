@@ -698,7 +698,6 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
 
                                                 <video
                                                     ref={videoRef}
-                                                    autoPlay
                                                     playsInline
                                                     muted
                                                     onClick={() => setIsCinemaMode(!isCinemaMode)}
