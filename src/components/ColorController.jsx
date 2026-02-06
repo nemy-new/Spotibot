@@ -604,7 +604,68 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         </div>
     );
 
-    const renderControlsPanel = () => (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', opacity: 0.8, textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: '64px' }}>music_off</span></div>
+        <h3 style={{ margin: '0 0 16px 0' }}>Waiting for Spotify...</h3>
+    </div>
+                                )
+}
+                            </div >
+                        ) : (
+    // ... (Existing No Track UI) ...
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', opacity: 0.8, textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: '64px' }}>music_off</span></div>
+        <h3 style={{ margin: '0 0 16px 0' }}>Waiting for Spotify...</h3>
+    </div>
+)}
+                    </>
+                ) : (
+    // ... (Login prompt already likely centered) ...
+    <div className="flex-col" style={{ alignItems: 'center', gap: '32px', flex: 1, justifyContent: 'center' }}>
+        {/* ... */}
+        <span className="material-symbols-outlined" style={{ fontSize: '80px', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.2))' }}>music_note</span>
+        <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ fontSize: '32px', margin: 0 }}>Spotify Sync</h2>
+            <p style={{ opacity: 0.6, fontSize: '16px' }}>Connect to transform your space with music.</p>
+        </div>
+        {spotifyClientId ? (
+            <button onClick={() => syncWithSpotify()} className="btn-primary" style={{ background: '#1DB954', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(29, 185, 84, 0.3)' }}>
+                Connect Spotify Account
+            </button>
+        ) : (
+            <button onClick={onOpenSettings} className="btn-primary" style={{ background: '#555', padding: '16px 48px', fontSize: '18px', borderRadius: '100px' }}>
+                ⚠️ Set Client ID First
+            </button>
+        )}
+    </div>
+)}
+            </div >
+        </div >
+    );
+
+const renderControlsPanel = () => {
+    // --- PRESET STATE ---
+    const [presets, setPresets] = useState(() => {
+        const saved = localStorage.getItem('spotibot_presets');
+        return saved ? JSON.parse(saved) : ['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#ff00ff', '#ffff00', '#1DB954'];
+    });
+    const [isEditingPresets, setIsEditingPresets] = useState(false);
+
+    const handlePresetClick = (idx) => {
+        if (isEditingPresets) {
+            // Save mode: overwrites the clicked preset with current color
+            const newPresets = [...presets];
+            newPresets[idx] = color;
+            setPresets(newPresets);
+            localStorage.setItem('spotibot_presets', JSON.stringify(newPresets));
+            setIsEditingPresets(false); // optimize flow: click -> save -> exit mode
+        } else {
+            // Normal mode: apply color
+            setColor(presets[idx]);
+        }
+    };
+
+    return (
         <div className="card" style={{
             flex: '1',
             minWidth: '320px',
@@ -617,6 +678,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             justifyContent: 'flex-start',
             gap: '24px',
         }}>
+            {/* Headers ... */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '14px', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>tune</span> CONTROL PANEL
@@ -743,10 +805,42 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                 <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden' }}>
                                     <HexColorPicker color={color} onChange={setColor} style={{ width: '100%', height: '100%' }} />
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                                    {['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#ff00ff', '#ffff00', '#1DB954'].map(c => (
-                                        <button key={c} onClick={() => setColor(c)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: c, border: color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transform: color === c ? 'scale(1.2)' : 'scale(1)', transition: 'transform 0.2s' }} />
-                                    ))}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+
+                                    {/* Editable Presets */}
+                                    <div style={{ display: 'flex', gap: '8px', flex: 1, justifyContent: 'space-between' }}>
+                                        {presets.map((c, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handlePresetClick(idx)}
+                                                style={{
+                                                    width: '28px', height: '28px', borderRadius: '50%', background: c,
+                                                    border: isEditingPresets ? '2px dashed #1DB954' : (color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.1)'),
+                                                    cursor: 'pointer',
+                                                    transform: (isEditingPresets || color === c) ? 'scale(1.2)' : 'scale(1)',
+                                                    transition: 'transform 0.2s',
+                                                    opacity: isEditingPresets ? 0.8 : 1
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    {/* Edit Button */}
+                                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+                                    <button
+                                        onClick={() => setIsEditingPresets(!isEditingPresets)}
+                                        title="Overwrite preset with current color"
+                                        style={{
+                                            width: '32px', height: '32px', borderRadius: '8px',
+                                            background: isEditingPresets ? '#1DB954' : 'rgba(255,255,255,0.1)',
+                                            border: 'none', color: 'white',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            flexShrink: 0
+                                        }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isEditingPresets ? 'save_as' : 'edit'}</span>
+                                    </button>
+
                                 </div>
                             </div>
                         ) : (
