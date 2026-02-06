@@ -853,11 +853,6 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                         zIndex: 10,
                         WebkitAppRegion: 'drag' // Allow dragging window
                     }}>
-                        import logo from '../assets/logo.png';
-
-                        // ... (existing imports)
-
-                        // ... inside component ...
                         <div style={{ fontSize: '24px', fontWeight: '700', fontFamily: 'Quicksand, sans-serif', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <img src={logo} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
                             <span>SpotiBot</span>
