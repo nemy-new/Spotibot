@@ -604,319 +604,285 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         </div>
     );
 
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', opacity: 0.8, textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: '64px' }}>music_off</span></div>
-        <h3 style={{ margin: '0 0 16px 0' }}>Waiting for Spotify...</h3>
-    </div>
-                                )
-}
-                            </div >
-                        ) : (
-    // ... (Existing No Track UI) ...
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', opacity: 0.8, textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><span className="material-symbols-outlined" style={{ fontSize: '64px' }}>music_off</span></div>
-        <h3 style={{ margin: '0 0 16px 0' }}>Waiting for Spotify...</h3>
-    </div>
-)}
-                    </>
-                ) : (
-    // ... (Login prompt already likely centered) ...
-    <div className="flex-col" style={{ alignItems: 'center', gap: '32px', flex: 1, justifyContent: 'center' }}>
-        {/* ... */}
-        <span className="material-symbols-outlined" style={{ fontSize: '80px', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.2))' }}>music_note</span>
-        <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
-            <h2 style={{ fontSize: '32px', margin: 0 }}>Spotify Sync</h2>
-            <p style={{ opacity: 0.6, fontSize: '16px' }}>Connect to transform your space with music.</p>
-        </div>
-        {spotifyClientId ? (
-            <button onClick={() => syncWithSpotify()} className="btn-primary" style={{ background: '#1DB954', padding: '16px 48px', fontSize: '18px', borderRadius: '100px', boxShadow: '0 10px 40px rgba(29, 185, 84, 0.3)' }}>
-                Connect Spotify Account
-            </button>
-        ) : (
-            <button onClick={onOpenSettings} className="btn-primary" style={{ background: '#555', padding: '16px 48px', fontSize: '18px', borderRadius: '100px' }}>
-                ⚠️ Set Client ID First
-            </button>
-        )}
-    </div>
-)}
-            </div >
-        </div >
-    );
+    const renderControlsPanel = () => {
+        // --- PRESET STATE ---
+        const [presets, setPresets] = useState(() => {
+            const saved = localStorage.getItem('spotibot_presets');
+            return saved ? JSON.parse(saved) : ['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#ff00ff', '#ffff00', '#1DB954'];
+        });
+        const [isEditingPresets, setIsEditingPresets] = useState(false);
 
-const renderControlsPanel = () => {
-    // --- PRESET STATE ---
-    const [presets, setPresets] = useState(() => {
-        const saved = localStorage.getItem('spotibot_presets');
-        return saved ? JSON.parse(saved) : ['#ff0000', '#00ff00', '#0000ff', '#ffffff', '#ff00ff', '#ffff00', '#1DB954'];
-    });
-    const [isEditingPresets, setIsEditingPresets] = useState(false);
+        const handlePresetClick = (idx) => {
+            if (isEditingPresets) {
+                // Save mode: overwrites the clicked preset with current color
+                const newPresets = [...presets];
+                newPresets[idx] = color;
+                setPresets(newPresets);
+                localStorage.setItem('spotibot_presets', JSON.stringify(newPresets));
+                setIsEditingPresets(false); // optimize flow: click -> save -> exit mode
+            } else {
+                // Normal mode: apply color
+                setColor(presets[idx]);
+            }
+        };
 
-    const handlePresetClick = (idx) => {
-        if (isEditingPresets) {
-            // Save mode: overwrites the clicked preset with current color
-            const newPresets = [...presets];
-            newPresets[idx] = color;
-            setPresets(newPresets);
-            localStorage.setItem('spotibot_presets', JSON.stringify(newPresets));
-            setIsEditingPresets(false); // optimize flow: click -> save -> exit mode
-        } else {
-            // Normal mode: apply color
-            setColor(presets[idx]);
-        }
-    };
-
-    return (
-        <div className="card" style={{
-            flex: '1',
-            minWidth: '320px',
-            maxWidth: '600px',
-            padding: '32px',
-            background: 'var(--glass-bg)',
-            display: 'flex',
-            flexDirection: 'column',
-            zIndex: 2,
-            justifyContent: 'flex-start',
-            gap: '24px',
-        }}>
-            {/* Headers ... */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '14px', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>tune</span> CONTROL PANEL
+        return (
+            <div className="card" style={{
+                flex: '1',
+                minWidth: '320px',
+                maxWidth: '600px',
+                padding: '32px',
+                background: 'var(--glass-bg)',
+                display: 'flex',
+                flexDirection: 'column',
+                zIndex: 2,
+                justifyContent: 'flex-start',
+                gap: '24px',
+            }}>
+                {/* Headers ... */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '14px', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>tune</span> CONTROL PANEL
+                    </div>
+                    <div style={{ fontSize: '12px', opacity: 0.7, background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '100px' }}>
+                        {activeDevices.length} Lights Active
+                    </div>
                 </div>
-                <div style={{ fontSize: '12px', opacity: 0.7, background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: '100px' }}>
-                    {activeDevices.length} Lights Active
-                </div>
-            </div>
 
-            {/* Target Devices (Selection) */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {devices.map(d => (
+                {/* Target Devices (Selection) */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {devices.map(d => (
+                        <button
+                            key={d.deviceId}
+                            onClick={() => onToggleDevice(d.deviceId)}
+                            style={{
+                                padding: '6px 12px',
+                                background: selectedDeviceIds.includes(d.deviceId) ? 'var(--primary-color)' : 'transparent',
+                                border: selectedDeviceIds.includes(d.deviceId) ? '1px solid var(--primary-color)' : '1px solid var(--glass-border)',
+                                borderRadius: '100px',
+                                color: selectedDeviceIds.includes(d.deviceId) ? 'white' : 'rgba(255,255,255,0.7)',
+                                fontSize: '11px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{d.deviceType.includes('Strip') ? 'linear_scale' : 'lightbulb'}</span>
+                            {d.deviceName}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Master Power (Big Toggle) */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
                     <button
-                        key={d.deviceId}
-                        onClick={() => onToggleDevice(d.deviceId)}
+                        onClick={togglePower}
+                        disabled={activeDevices.length === 0}
                         style={{
-                            padding: '6px 12px',
-                            background: selectedDeviceIds.includes(d.deviceId) ? 'var(--primary-color)' : 'transparent',
-                            border: selectedDeviceIds.includes(d.deviceId) ? '1px solid var(--primary-color)' : '1px solid var(--glass-border)',
-                            borderRadius: '100px',
-                            color: selectedDeviceIds.includes(d.deviceId) ? 'white' : 'rgba(255,255,255,0.7)',
-                            fontSize: '11px',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
+                            width: '100%',
+                            height: '64px',
+                            borderRadius: '16px',
+                            background: power ? 'var(--primary-color)' : 'rgba(255,255,255,0.05)',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            cursor: activeDevices.length === 0 ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            justifyContent: 'center',
+                            gap: '12px',
+                            boxShadow: power ? '0 4px 20px rgba(29, 185, 84, 0.4)' : 'none',
+                            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
                         }}
                     >
-                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{d.deviceType.includes('Strip') ? 'linear_scale' : 'lightbulb'}</span>
-                        {d.deviceName}
+                        <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>power_settings_new</span>
+                        {power ? 'Turn Off' : 'Turn On'}
                     </button>
-                ))}
-            </div>
-
-            {/* Master Power (Big Toggle) */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button
-                    onClick={togglePower}
-                    disabled={activeDevices.length === 0}
-                    style={{
-                        width: '100%',
-                        height: '64px',
-                        borderRadius: '16px',
-                        background: power ? 'var(--primary-color)' : 'rgba(255,255,255,0.05)',
-                        border: 'none',
-                        color: 'white',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: activeDevices.length === 0 ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '12px',
-                        boxShadow: power ? '0 4px 20px rgba(29, 185, 84, 0.4)' : 'none',
-                        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-                    }}
-                >
-                    <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>power_settings_new</span>
-                    {power ? 'Turn Off' : 'Turn On'}
-                </button>
-            </div>
-
-            {/* Controls Section */}
-            <div className="flex-col" style={{ gap: '32px', flex: 1, opacity: activeDevices.length === 0 || !power ? 0.4 : 1, pointerEvents: (activeDevices.length === 0 || !power) ? 'none' : 'auto', transition: 'opacity 0.3s' }}>
-                {/* Brightness Slider */}
-                <div className="flex-col" style={{ gap: '12px' }}>
-                    <div className="flex-row justify-between" style={{ fontSize: '12px', fontWeight: '500' }}>
-                        <span>Brightness</span>
-                        <span>{brightness}%</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px', opacity: 0.5 }}>brightness_low</span>
-                        <input
-                            type="range"
-                            min="1" max="100"
-                            value={brightness}
-                            onChange={(e) => setBrightness(parseInt(e.target.value))}
-                            className="custom-slider"
-                            style={{
-                                flex: 1,
-                                height: '6px',
-                                background: `linear-gradient(to right, var(--primary-color) ${brightness}%, rgba(255,255,255,0.1) ${brightness}%)`
-                            }}
-                        />
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px', opacity: 0.5 }}>brightness_high</span>
-                    </div>
                 </div>
 
-                {/* Color / White Tabs & Content */}
-                <div className="flex-col" style={{ gap: '16px', flex: 1 }}>
-                    {/* Tabs */}
-                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px' }}>
-                        <button
-                            onClick={() => setActiveTab('color')}
-                            style={{
-                                flex: 1, padding: '8px', borderRadius: '8px', border: 'none',
-                                background: activeTab === 'color' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                color: activeTab === 'color' ? 'white' : 'rgba(255,255,255,0.5)',
-                                cursor: 'pointer', fontSize: '12px', fontWeight: '600',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                            }}
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>palette</span> RGB Color
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('white')}
-                            style={{
-                                flex: 1, padding: '8px', borderRadius: '8px', border: 'none',
-                                background: activeTab === 'white' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                color: activeTab === 'white' ? 'white' : 'rgba(255,255,255,0.5)',
-                                cursor: 'pointer', fontSize: '12px', fontWeight: '600',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                            }}
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>thermostat</span> White Temp
-                        </button>
+                {/* Controls Section */}
+                <div className="flex-col" style={{ gap: '32px', flex: 1, opacity: activeDevices.length === 0 || !power ? 0.4 : 1, pointerEvents: (activeDevices.length === 0 || !power) ? 'none' : 'auto', transition: 'opacity 0.3s' }}>
+                    {/* Brightness Slider */}
+                    <div className="flex-col" style={{ gap: '12px' }}>
+                        <div className="flex-row justify-between" style={{ fontSize: '12px', fontWeight: '500' }}>
+                            <span>Brightness</span>
+                            <span>{brightness}%</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', opacity: 0.5 }}>brightness_low</span>
+                            <input
+                                type="range"
+                                min="1" max="100"
+                                value={brightness}
+                                onChange={(e) => setBrightness(parseInt(e.target.value))}
+                                className="custom-slider"
+                                style={{
+                                    flex: 1,
+                                    height: '6px',
+                                    background: `linear-gradient(to right, var(--primary-color) ${brightness}%, rgba(255,255,255,0.1) ${brightness}%)`
+                                }}
+                            />
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px', opacity: 0.5 }}>brightness_high</span>
+                        </div>
                     </div>
 
-                    {/* Tab Content */}
-                    <div style={{ flex: 1, minHeight: '180px', display: 'flex', flexDirection: 'column' }}>
-                        {activeTab === 'color' ? (
-                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
-                                <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden' }}>
-                                    <HexColorPicker color={color} onChange={setColor} style={{ width: '100%', height: '100%' }} />
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+                    {/* Color / White Tabs & Content */}
+                    <div className="flex-col" style={{ gap: '16px', flex: 1 }}>
+                        {/* Tabs */}
+                        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px' }}>
+                            <button
+                                onClick={() => setActiveTab('color')}
+                                style={{
+                                    flex: 1, padding: '8px', borderRadius: '8px', border: 'none',
+                                    background: activeTab === 'color' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: activeTab === 'color' ? 'white' : 'rgba(255,255,255,0.5)',
+                                    cursor: 'pointer', fontSize: '12px', fontWeight: '600',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>palette</span> RGB Color
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('white')}
+                                style={{
+                                    flex: 1, padding: '8px', borderRadius: '8px', border: 'none',
+                                    background: activeTab === 'white' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: activeTab === 'white' ? 'white' : 'rgba(255,255,255,0.5)',
+                                    cursor: 'pointer', fontSize: '12px', fontWeight: '600',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>thermostat</span> White Temp
+                            </button>
+                        </div>
 
-                                    {/* Editable Presets */}
-                                    <div style={{ display: 'flex', gap: '8px', flex: 1, justifyContent: 'space-between' }}>
-                                        {presets.map((c, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handlePresetClick(idx)}
-                                                style={{
-                                                    width: '28px', height: '28px', borderRadius: '50%', background: c,
-                                                    border: isEditingPresets ? '2px dashed #1DB954' : (color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.1)'),
-                                                    cursor: 'pointer',
-                                                    transform: (isEditingPresets || color === c) ? 'scale(1.2)' : 'scale(1)',
-                                                    transition: 'transform 0.2s',
-                                                    opacity: isEditingPresets ? 0.8 : 1
-                                                }}
-                                            />
-                                        ))}
+                        {/* Tab Content */}
+                        <div style={{ flex: 1, minHeight: '180px', display: 'flex', flexDirection: 'column' }}>
+                            {activeTab === 'color' ? (
+                                <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
+                                    <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden' }}>
+                                        <HexColorPicker color={color} onChange={setColor} style={{ width: '100%', height: '100%' }} />
                                     </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
 
-                                    {/* Edit Button */}
-                                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-                                    <button
-                                        onClick={() => setIsEditingPresets(!isEditingPresets)}
-                                        title="Overwrite preset with current color"
-                                        style={{
-                                            width: '32px', height: '32px', borderRadius: '8px',
-                                            background: isEditingPresets ? '#1DB954' : 'rgba(255,255,255,0.1)',
-                                            border: 'none', color: 'white',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            flexShrink: 0
-                                        }}>
-                                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isEditingPresets ? 'save_as' : 'edit'}</span>
-                                    </button>
+                                        {/* Editable Presets */}
+                                        <div style={{ display: 'flex', gap: '8px', flex: 1, justifyContent: 'space-between' }}>
+                                            {presets.map((c, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => handlePresetClick(idx)}
+                                                    style={{
+                                                        width: '28px', height: '28px', borderRadius: '50%', background: c,
+                                                        border: isEditingPresets ? '2px dashed #1DB954' : (color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.1)'),
+                                                        cursor: 'pointer',
+                                                        transform: (isEditingPresets || color === c) ? 'scale(1.2)' : 'scale(1)',
+                                                        transition: 'transform 0.2s',
+                                                        opacity: isEditingPresets ? 0.8 : 1
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
 
+                                        {/* Edit Button */}
+                                        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+                                        <button
+                                            onClick={() => setIsEditingPresets(!isEditingPresets)}
+                                            title="Overwrite preset with current color"
+                                            style={{
+                                                width: '32px', height: '32px', borderRadius: '8px',
+                                                background: isEditingPresets ? '#1DB954' : 'rgba(255,255,255,0.1)',
+                                                border: 'none', color: 'white',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                flexShrink: 0
+                                            }}>
+                                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isEditingPresets ? 'save_as' : 'edit'}</span>
+                                        </button>
+
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', justifyContent: 'center', height: '100%' }}>
-                                <div className="flex-row justify-between" style={{ fontSize: '12px', marginBottom: '-12px' }}>
-                                    <span>Warm (2700K)</span>
-                                    <span>Cool (6500K)</span>
+                            ) : (
+                                <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', justifyContent: 'center', height: '100%' }}>
+                                    <div className="flex-row justify-between" style={{ fontSize: '12px', marginBottom: '-12px' }}>
+                                        <span>Warm (2700K)</span>
+                                        <span>Cool (6500K)</span>
+                                    </div>
+                                    <div style={{ position: 'relative', height: '40px', display: 'flex', alignItems: 'center' }}>
+                                        <div style={{ position: 'absolute', left: 0, right: 0, height: '8px', borderRadius: '8px', background: 'linear-gradient(to right, #ffb157, #ffffff, #d6e4ff)' }} />
+                                        <input
+                                            type="range"
+                                            min="2700" max="6500" step="100"
+                                            value={colorTemp}
+                                            onChange={(e) => setColorTemp(parseInt(e.target.value))}
+                                            style={{ width: '100%', position: 'relative', zIndex: 1, opacity: 0.8 }}
+                                            className="custom-range" // requires no-style inputs css
+                                        />
+                                    </div>
+                                    <div style={{ textAlign: 'center', fontSize: '20px', fontWeight: 'bold' }}>{colorTemp}K</div>
                                 </div>
-                                <div style={{ position: 'relative', height: '40px', display: 'flex', alignItems: 'center' }}>
-                                    <div style={{ position: 'absolute', left: 0, right: 0, height: '8px', borderRadius: '8px', background: 'linear-gradient(to right, #ffb157, #ffffff, #d6e4ff)' }} />
-                                    <input
-                                        type="range"
-                                        min="2700" max="6500" step="100"
-                                        value={colorTemp}
-                                        onChange={(e) => setColorTemp(parseInt(e.target.value))}
-                                        style={{ width: '100%', position: 'relative', zIndex: 1, opacity: 0.8 }}
-                                        className="custom-range" // requires no-style inputs css
-                                    />
-                                </div>
-                                <div style={{ textAlign: 'center', fontSize: '20px', fontWeight: 'bold' }}>{colorTemp}K</div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    );
+        );
 
-    return (
-        <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', flexDirection: 'column',
-            fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-        }}>
+        return (
+            <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', flexDirection: 'column',
+                fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            }}>
 
-            {/* Ambient Background (Global) */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden', background: '#050505' }}>
-                <div className="aurora-blob" style={{ top: '-40%', left: '-20%', width: '80vw', height: '80vw', backgroundColor: color, opacity: 0.25, filter: 'blur(120px)', animationDuration: '30s' }} />
-                <div className="aurora-blob" style={{ bottom: '-40%', right: '-20%', width: '80vw', height: '80vw', backgroundColor: color, opacity: 0.15, filter: 'blur(120px)', animationDuration: '40s', animationDirection: 'reverse' }} />
-                {/* Noise texture for "premium" feel */}
-                <div style={{ position: 'absolute', inset: 0, background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'0 0 2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")', opacity: 0.03, pointerEvents: 'none' }} />
-            </div>
-
-            {/* Desktop Navbar (if needed) */}
-            {!isMobile && (
-                <div style={{
-                    height: '60px', padding: '0 32px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    zIndex: 10,
-                    WebkitAppRegion: 'drag' // Allow dragging window
-                }}>
-                    <div style={{ fontSize: '24px', fontWeight: '700', fontFamily: 'Quicksand, sans-serif', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <img src="./src/assets/logo.png" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
-                        <span>SpotiBot</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '16px', WebkitAppRegion: 'no-drag' /* Buttons clickable */ }}>
-                        <button onClick={fetchStatus} className="btn-icon" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
-                            <span className="material-symbols-outlined">refresh</span>
-                        </button>
-                        <button onClick={onOpenSettings} className="btn-icon" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
-                            <span className="material-symbols-outlined">settings</span>
-                        </button>
-                    </div>
+                {/* Ambient Background (Global) */}
+                <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden', background: '#050505' }}>
+                    <div className="aurora-blob" style={{ top: '-40%', left: '-20%', width: '80vw', height: '80vw', backgroundColor: color, opacity: 0.25, filter: 'blur(120px)', animationDuration: '30s' }} />
+                    <div className="aurora-blob" style={{ bottom: '-40%', right: '-20%', width: '80vw', height: '80vw', backgroundColor: color, opacity: 0.15, filter: 'blur(120px)', animationDuration: '40s', animationDirection: 'reverse' }} />
+                    {/* Noise texture for "premium" feel */}
+                    <div style={{ position: 'absolute', inset: 0, background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'0 0 2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")', opacity: 0.03, pointerEvents: 'none' }} />
                 </div>
-            )}
 
-            {/* MAIN LAYOUT */}
-            <div className="flex-row" style={{ gap: '24px', flex: 1, minHeight: 0, alignItems: 'stretch', padding: isMobile ? 0 : '0 32px 32px 32px', zIndex: 1 }}>
+                {/* Desktop Navbar (if needed) */}
+                {!isMobile && (
+                    <div style={{
+                        height: '60px', padding: '0 32px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        zIndex: 10,
+                        WebkitAppRegion: 'drag' // Allow dragging window
+                    }}>
+                        import logo from '../assets/logo.png';
 
-                {/* Visual Panel */}
-                {renderVisualPanel()}
+                        // ... (existing imports)
 
-                {/* Controls Panel */}
-                {renderControlsPanel()}
+                        // ... inside component ...
+                        <div style={{ fontSize: '24px', fontWeight: '700', fontFamily: 'Quicksand, sans-serif', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <img src={logo} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                            <span>SpotiBot</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', WebkitAppRegion: 'no-drag' /* Buttons clickable */ }}>
+                            <button onClick={fetchStatus} className="btn-icon" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
+                                <span className="material-symbols-outlined">refresh</span>
+                            </button>
+                            <button onClick={onOpenSettings} className="btn-icon" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
+                                <span className="material-symbols-outlined">settings</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
+                {/* MAIN LAYOUT */}
+                <div className="flex-row" style={{ gap: '24px', flex: 1, minHeight: 0, alignItems: 'stretch', padding: isMobile ? 0 : '0 32px 32px 32px', zIndex: 1 }}>
+
+                    {/* Visual Panel */}
+                    {renderVisualPanel()}
+
+                    {/* Controls Panel */}
+                    {renderControlsPanel()}
+
+                </div>
             </div>
-        </div>
-    );
-}
+        );
+    }
