@@ -553,7 +553,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                     </>
                 ) : (
                     // No Spotify Token
-                    <div className="flex-col" style={{ alignItems: 'center', gap: '32px' }}>
+                    <div className="flex-col" style={{ alignItems: 'center', gap: '32px', flex: 1, justifyContent: 'center' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '80px', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.2))' }}>music_note</span>
                         <div className="flex-col" style={{ alignItems: 'center', gap: '8px' }}>
                             <h2 style={{ fontSize: '32px', margin: 0 }}>Spotify Sync</h2>
