@@ -27,12 +27,32 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
 
     // Spotify State
     const [track, setTrack] = useState(null);
+    const [audioFeatures, setAudioFeatures] = useState(null);
     const [autoSync, setAutoSync] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
 
     // UI Mode
     const isMobile = useIsMobile();
     const [mobileTab, setMobileTab] = useState('visual'); // 'visual' | 'control'
+
+    // Helpers
+    const formatKey = (key, mode) => {
+        const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        return `${keys[key] || '?'} ${mode === 1 ? 'Maj' : 'Min'}`;
+    };
+
+    const StatRing = ({ value, label, color }) => (
+        <div style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={color} strokeWidth="3" strokeDasharray={`${value * 100}, 100`} />
+            </svg>
+            <div style={{ position: 'absolute', flexDirection: 'column', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '8px', fontWeight: 'bold' }}>{Math.round(value * 100)}</span>
+            </div>
+            <div style={{ position: 'absolute', bottom: '-16px', fontSize: '8px', opacity: 0.5 }}>{label}</div>
+        </div>
+    );
 
     // --- SYNC LOGIC ---
     const lastCommandTime = useRef(0);
@@ -98,6 +118,16 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
             setIsPlaying(data.is_playing);
             if (!track || track.id !== data.item.id) {
                 setTrack({ ...data.item, isFallback });
+
+                // Fetch Audio Features
+                if (!data.item.is_local) {
+                    spotifyApi.getAudioFeatures(spotifyToken, data.item.id).then(features => {
+                        if (features) setAudioFeatures(features);
+                    });
+                } else {
+                    setAudioFeatures(null);
+                }
+
                 const imageUrl = data.item.album.images[0]?.url;
                 if (imageUrl) {
                     const domColor = await extractColorFromImage(imageUrl);
