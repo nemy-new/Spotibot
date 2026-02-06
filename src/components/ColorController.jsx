@@ -57,6 +57,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     // --- SYNC LOGIC ---
     const lastCommandTime = useRef(0);
     const colorDebounceTimer = useRef(null);
+    const controlActive = useRef(false); // Validates when we can start sending commands
 
     // 2. Fetch Initial Status
     useEffect(() => {
@@ -131,7 +132,11 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                 const imageUrl = data.item.album.images[0]?.url;
                 if (imageUrl) {
                     const domColor = await extractColorFromImage(imageUrl);
-                    if (domColor) { setColor(domColor); setActiveTab('color'); }
+                    if (domColor) {
+                        setColor(domColor);
+                        setActiveTab('color');
+                        controlActive.current = true; // Enable control after finding art color
+                    }
                 }
             }
         }
@@ -152,12 +157,17 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
         if (!track || !track.album.images[0]) return;
         const rect = e.target.getBoundingClientRect();
         const hex = await getPixelColorFromImage(track.album.images[0].url, e.clientX - rect.left, e.clientY - rect.top, e.target);
-        if (hex) { setColor(hex); setActiveTab('color'); }
+        if (hex) {
+            setColor(hex);
+            setActiveTab('color');
+            controlActive.current = true; // Enable control on user interaction
+        }
     };
 
     const togglePower = async () => {
         if (activeDevices.length === 0) return;
         setLoading(true);
+        controlActive.current = true; // Enable control on user interaction
         try {
             await Promise.all(activeDevices.map(async (d) => {
                 try {
@@ -175,6 +185,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     // Debouncers
     useDebounce(async () => {
         if (activeDevices.length === 0) return;
+        if (!controlActive.current) return; // Prevent initial sync echo
         await Promise.all(activeDevices.map(async d => {
             try {
                 await switchbotApi.sendCommand(token, secret, d.deviceId, 'setBrightness', brightness.toString());
@@ -184,6 +195,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
 
     useDebounce(async () => {
         if (activeDevices.length === 0 || activeTab !== 'white') return;
+        if (!controlActive.current) return; // Prevent initial sync echo
         await Promise.all(activeDevices.map(async d => {
             try {
                 await switchbotApi.sendCommand(token, secret, d.deviceId, 'setColorTemperature', colorTemp.toString());
@@ -194,6 +206,8 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
     // Manual Color (Debounced)
     useEffect(() => {
         if (activeDevices.length === 0 || activeTab !== 'color') return;
+        if (!controlActive.current) return; // Prevent initial sync echo
+
         if (colorDebounceTimer.current) clearTimeout(colorDebounceTimer.current);
 
         colorDebounceTimer.current = setTimeout(async () => {
@@ -764,7 +778,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                             {activeTab === 'color' ? (
                                 <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
                                     <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden' }}>
-                                        <HexColorPicker color={color} onChange={setColor} style={{ width: '100%', height: '100%' }} />
+                                        <HexColorPicker color={color} onChange={(c) => { setColor(c); controlActive.current = true; }} style={{ width: '100%', height: '100%' }} />
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
 
@@ -773,7 +787,7 @@ export function ColorController({ devices, selectedDeviceIds, onToggleDevice, to
                                             {presets.map((c, idx) => (
                                                 <button
                                                     key={idx}
-                                                    onClick={() => handlePresetClick(idx)}
+                                                    onClick={() => { handlePresetClick(idx); controlActive.current = true; }}
                                                     style={{
                                                         width: '28px', height: '28px', borderRadius: '50%', background: c,
                                                         border: isEditingPresets ? '2px dashed #1DB954' : (color === c ? '2px solid white' : '1px solid rgba(255,255,255,0.1)'),
