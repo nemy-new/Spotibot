@@ -1,4 +1,5 @@
 {
+    "outputDirectory": "dist-web",
     "rewrites": [
         {
             "source": "/api/switchbot/:path*",
