@@ -1700,6 +1700,7 @@ export function ColorController({
                         onClick={togglePower}
                         disabled={activeDevices.length === 0}
                         style={{
+                            width: '100%',
                             height: '64px',
                             borderRadius: '16px',
                             background: power ? accentColor : 'rgba(255,255,255,0.05)',
