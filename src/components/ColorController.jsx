@@ -214,6 +214,7 @@ export function ColorController({
     const colorDebounceTimer = useRef(null);
     const controlActive = useRef(false); // Validates when we can start sending commands
     const failedAudioFeatureTrackIds = useRef(new Set()); // Negative cache for 403s
+    const currentTrackId = useRef(null); // Prevents stale state in setInterval closure
 
     // 2. Fetch Initial Status
     useEffect(() => {
@@ -428,9 +429,10 @@ export function ColorController({
         }
         if (data && data.item) {
             setIsPlaying(data.is_playing);
-            const trackChanged = !track || track.id !== data.item.id;
+            const trackChanged = currentTrackId.current !== data.item.id;
 
             if (trackChanged) {
+                currentTrackId.current = data.item.id;
                 setTrack({ ...data.item, isFallback });
 
                 // Fetch Audio Features
