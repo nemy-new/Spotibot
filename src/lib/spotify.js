@@ -20,14 +20,24 @@ const generateCodeChallenge = (codeVerifier) => {
         .replace(/=+$/, '');
 };
 
+const isElectron = () => navigator.userAgent.toLowerCase().includes('electron');
+
+export const getRedirectUri = () => {
+    if (isElectron()) return 'spotibot://callback';
+    // Use origin + pathname to be consistent, but clean up query params
+    return window.location.origin + window.location.pathname;
+};
+
 export const spotifyApi = {
-    login: async (clientId, redirectUri) => {
+    login: async (clientId) => {
         const codeVerifier = generateRandomString(128);
         const codeChallenge = generateCodeChallenge(codeVerifier);
 
         localStorage.setItem('spotify_code_verifier', codeVerifier);
 
-        const url = `${AUTH_ENDPOINT}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${SCOPES.join(
+        const effectiveRedirectUri = getRedirectUri();
+
+        const url = `${AUTH_ENDPOINT}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(effectiveRedirectUri)}&scope=${SCOPES.join(
             "%20"
         )}&response_type=code&code_challenge_method=S256&code_challenge=${codeChallenge}&show_dialog=true`;
 
@@ -36,24 +46,34 @@ export const spotifyApi = {
         console.log("Challenge:", codeChallenge);
         console.log("URL:", url);
 
-        window.location.href = url;
+        if (isElectron()) {
+            window.open(url, '_blank'); // Trigger setWindowOpenHandler in Main
+        } else {
+            window.location.href = url;
+        }
     },
 
-    getToken: async (code, clientId, redirectUri) => {
+    getToken: async (code, clientId, redirectUri, clientSecret = '') => {
         const codeVerifier = localStorage.getItem('spotify_code_verifier');
+
+        const params = {
+            client_id: clientId,
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri || getRedirectUri(),
+            code_verifier: codeVerifier,
+        };
+
+        if (clientSecret) {
+            params.client_secret = clientSecret;
+        }
 
         const payload = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: new URLSearchParams({
-                client_id: clientId,
-                grant_type: 'authorization_code',
-                code,
-                redirect_uri: redirectUri,
-                code_verifier: codeVerifier,
-            }),
+            body: new URLSearchParams(params),
         };
 
         const response = await fetch(TOKEN_ENDPOINT, payload);
@@ -123,10 +143,11 @@ export const spotifyApi = {
                     Authorization: `Bearer ${token}`,
                 },
             });
+            if (response.status === 403) return null; // Forbidden: usually local or restricted track
             if (response.status !== 200) return null;
             return await response.json();
         } catch (error) {
-            console.error("Spotify API Error (Audio Features):", error);
+            console.warn("Spotify API Error (Audio Features):", error);
             return null;
         }
     },

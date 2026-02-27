@@ -1,0 +1,114 @@
+{
+    "app": {
+        "title": "SpotiBot",
+        "welcome": "Welcome! Please configure your SwitchBot API credentials to get started.",
+        "openSettings": "Open Settings",
+        "loading": "Loading...",
+        "noDevices": "No lights found directly. Please check your SwitchBot configuration.",
+        "waitingForSpotify": "Waiting for Spotify...",
+        "spotifySync": "Spotify Sync",
+        "connectDescription": "Connect to transform your space with music.",
+        "connectSpotify": "Connect Spotify Account",
+        "setClientId": "⚠️ Set Client ID First"
+    },
+    "settings": {
+        "title": "Settings",
+        "save": "Save Connection",
+        "done": "Done",
+        "tabs": {
+            "connection": "Connection",
+            "appearance": "Appearance"
+        },
+        "switchbot": {
+            "title": "SwitchBot API",
+            "token": "Token",
+            "secret": "Secret",
+            "getKey": "How to get API Key",
+            "devices": "Devices"
+        },
+        "spotify": {
+            "title": "Spotify API",
+            "clientId": "Client ID",
+            "clientSecret": "Client Secret (Optional)",
+            "dashboard": "Spotify Dashboard"
+        },
+        "appearance": {
+            "glassEffect": "Glass Effect (Blur)",
+            "auroraIntensity": "Aurora Intensity",
+            "animationSpeed": "Animation Speed",
+            "showLogo": "Show Logo",
+            "filmGrain": "Film Grain Texture",
+            "dynamicAccent": "Dynamic Accent Color",
+            "multiColorMode": "Multi Color Mode",
+            "multiColorModeDesc": "Individual device color sync"
+        },
+        "language": "Language",
+        "reset": "Reset Settings",
+        "resetConfirm": "Are you sure you want to reset all settings?"
+    },
+    "controls": {
+        "visuals": "Visuals",
+        "remote": "Remote",
+        "controlPanel": "CONTROL PANEL",
+        "lightsActive": "Lights Active",
+        "turnOn": "Turn On",
+        "turnOff": "Turn Off",
+        "brightness": "Brightness",
+        "tabs": {
+            "color": "Color",
+            "white": "White",
+            "screen": "Screen Sync"
+        },
+        "screen": {
+            "selectSource": "Select Source",
+            "noSource": "No source selected",
+            "start": "Start Sync",
+            "stop": "Stop Sync",
+            "selectWindow": "Select Window",
+            "selectScreen": "Select Screen"
+        },
+        "warm": "Warm",
+        "cool": "Cool",
+        "multiColorDashboard": "MULTI COLOR DASHBOARD",
+        "manualPicker": "MANUAL COLOR PICKER",
+        "paletteSwatches": "PALETTE SWATCHES",
+        "deviceRouting": "DEVICE ROUTING",
+        "energySync": "Energy Sync",
+        "rhythmLoop": "RHYTHM LOOP",
+        "groups": "GROUPS",
+        "devices": "DEVICES",
+        "lightsOn": "LIGHTS ON",
+        "lightsOff": "LIGHTS OFF",
+        "noDevices": "NO DEVICES",
+        "channel": "CH",
+        "auto": "AUTO",
+        "dropToRoute": "* Drop lights on swatches below to route",
+        "groupNamePlaceholder": "Group Name"
+    },
+    "tutorial": {
+        "welcome": {
+            "title": "Welcome to SpotiBot",
+            "description": "Sync your SwitchBot lights with Spotify for an immersive automated light show."
+        },
+        "switchbot": {
+            "title": "Connect Lights",
+            "description": "To control your lights, we need your SwitchBot API Token & Secret.",
+            "note": "You can find these in the SwitchBot App > Profile > Preferences > App Version (Tap 10 times).",
+            "link": "Open Guide"
+        },
+        "spotify": {
+            "title": "Connect Music",
+            "description": "We need a Spotify Client ID to read your current playback.",
+            "note": "Get this from the Spotify Developer Dashboard.",
+            "link": "Open Dashboard"
+        },
+        "ready": {
+            "title": "You're All Set!",
+            "description": "Explore the controls, start some music, and enjoy the show.",
+            "button": "Get Started"
+        },
+        "next": "Next",
+        "back": "Back",
+        "skip": "Skip"
+    }
+}

@@ -1,0 +1,116 @@
+{
+    "app": {
+        "title": "SpotiBot",
+        "welcome": "ようこそ！ SwitchBot APIの設定を行って開始してください。",
+        "openSettings": "設定を開く",
+        "loading": "読み込み中...",
+        "noDevices": "ライトが見つかりませんでした。SwitchBotの設定を確認してください。",
+        "waitingForSpotify": "Spotifyを待機中...",
+        "spotifySync": "Spotify Sync",
+        "connectDescription": "Spotifyと連携して、音楽で空間を彩りましょう。",
+        "connectSpotify": "Spotifyアカウントを接続",
+        "setClientId": "⚠️ クライアントIDを設定してください"
+    },
+    "settings": {
+        "title": "設定",
+        "save": "接続を保存",
+        "done": "完了",
+        "tabs": {
+            "connection": "接続",
+            "appearance": "外観"
+        },
+        "switchbot": {
+            "title": "SwitchBot API",
+            "token": "トークン",
+            "secret": "シークレット",
+            "getKey": "APIキーの取得方法",
+            "devices": "デバイス"
+        },
+        "spotify": {
+            "title": "Spotify API",
+            "clientId": "クライアントID",
+            "clientSecret": "クライアントシークレット (任意)",
+            "dashboard": "Spotifyダッシュボード"
+        },
+        "appearance": {
+            "glassEffect": "すりガラス効果 (ぼかし)",
+            "auroraIntensity": "オーロラの強さ",
+            "animationSpeed": "アニメーション速度",
+            "showLogo": "ロゴを表示",
+            "filmGrain": "フィルム粒子テクスチャ",
+            "dynamicAccent": "ダイナミックアクセントカラー",
+            "multiColorMode": "マルチカラーモード",
+            "multiColorModeDesc": "各デバイスごとの個別色制御"
+        },
+        "language": "言語",
+        "reset": "設定をリセット",
+        "resetConfirm": "すべての設定をリセットしてもよろしいですか？"
+    },
+    "controls": {
+        "visuals": "ビジュアル",
+        "remote": "リモコン",
+        "controlPanel": "コントロールパネル",
+        "lightsActive": "ライト稼働中",
+        "turnOn": "オンにする",
+        "turnOff": "オフにする",
+        "brightness": "明るさ",
+        "tabs": {
+            "color": "カラー",
+            "white": "ホワイト",
+            "screen": "画面同期"
+        },
+        "screen": {
+            "selectSource": "ソースを選択",
+            "noSource": "ソースが選択されていません",
+            "start": "同期開始",
+            "stop": "同期停止",
+            "selectWindow": "ウィンドウを選択",
+            "selectScreen": "画面全体を選択"
+        },
+        "rgbColor": "RGBカラー",
+        "white": "ホワイト",
+        "warm": "暖色",
+        "cool": "寒色",
+        "multiColorDashboard": "マルチカラーダッシュボード",
+        "manualPicker": "マニュアルカラーピッカー",
+        "paletteSwatches": "パレットスウォッチ",
+        "deviceRouting": "デバイルーティング",
+        "energySync": "エナジーシンク",
+        "rhythmLoop": "リズムループ",
+        "groups": "グループ",
+        "devices": "デバイス",
+        "lightsOn": "点灯中",
+        "lightsOff": "消灯中",
+        "noDevices": "デバイスなし",
+        "channel": "CH",
+        "auto": "オート",
+        "dropToRoute": "* 下のスウォッチにライトをドロップして割り当て",
+        "groupNamePlaceholder": "グループ名"
+    },
+    "tutorial": {
+        "welcome": {
+            "title": "SpotiBotへようこそ",
+            "description": "SwitchBotのライトとSpotifyを同期させて、没入感のある照明演出を楽しみましょう。"
+        },
+        "switchbot": {
+            "title": "ライトを接続",
+            "description": "ライトを制御するには、SwitchBotアプリからAPIトークンとシークレットキーを取得する必要があります。",
+            "note": "取得方法: SwitchBotアプリ > プロフィール > 設定 > アプリバージョン (10回タップ)",
+            "link": "ガイドを開く"
+        },
+        "spotify": {
+            "title": "音楽を接続",
+            "description": "再生中の音楽と同期するために、Spotify Client IDが必要です。",
+            "note": "Spotify Developer Dashboardから取得できます。",
+            "link": "ダッシュボードを開く"
+        },
+        "ready": {
+            "title": "準備完了！",
+            "description": "音楽を再生して、光のショーをお楽しみください。",
+            "button": "はじめる"
+        },
+        "next": "次へ",
+        "back": "戻る",
+        "skip": "スキップ"
+    }
+}

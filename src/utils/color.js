@@ -1,5 +1,5 @@
 // Helper: Convert RGB to HSL
-function rgbToHsl(r, g, b) {
+export function rgbToHsl(r, g, b) {
     r /= 255; g /= 255; b /= 255;
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
     let h, s, l = (max + min) / 2;
@@ -19,6 +19,32 @@ function rgbToHsl(r, g, b) {
     return [h, s, l];
 }
 
+// Helper: Convert HSL to RGB
+export function hslToRgb(h, s, l) {
+    let r, g, b;
+
+    if (s === 0) {
+        r = g = b = l; // achromatic
+    } else {
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+        };
+
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
 // Helper: Convert component to Hex
 function componentToHex(c) {
     const hex = c.toString(16);
@@ -30,6 +56,11 @@ function rgbToHex(r, g, b) {
 }
 
 export const extractColorFromImage = async (imageUrl) => {
+    const palette = await extractPaletteFromImage(imageUrl, 1);
+    return palette[0] || null;
+};
+
+export const extractPaletteFromImage = async (imageUrl, count = 3) => {
     return new Promise((resolve) => {
         const img = new Image();
         img.crossOrigin = "Anonymous";
@@ -79,37 +110,59 @@ export const extractColorFromImage = async (imageUrl) => {
                         sumR += imageData[i]; sumG += imageData[i + 1]; sumB += imageData[i + 2]; count++;
                     }
                     if (count > 0) {
-                        resolve(rgbToHex(Math.round(sumR / count), Math.round(sumG / count), Math.round(sumB / count)));
+                        resolve([rgbToHex(Math.round(sumR / count), Math.round(sumG / count), Math.round(sumB / count))]);
                         return;
                     }
-                    resolve("#ffffff");
+                    resolve(["#ffffff"]);
                     return;
                 }
 
-                // Sort by score descending and take the top one
-                // To avoid 1-pixel noise, we could bucket, but taking the top percentile is usually fine for "Vibrant"
+                // Sort by score descending
                 colorScores.sort((a, b) => b.score - a.score);
 
-                // Take average of top 10 vivid pixels to smooth out noise
-                const topPicks = colorScores.slice(0, 10);
-                let sumR = 0, sumG = 0, sumB = 0;
-                topPicks.forEach(c => { sumR += c.r; sumG += c.g; sumB += c.b; });
+                // Select distinct colors
+                const palette = [];
+                const minDistance = 50; // Minimum Euclidean distance between selected colors
 
-                const finalR = Math.round(sumR / topPicks.length);
-                const finalG = Math.round(sumG / topPicks.length);
-                const finalB = Math.round(sumB / topPicks.length);
+                for (const color of colorScores) {
+                    if (palette.length >= count) break;
 
-                resolve(rgbToHex(finalR, finalG, finalB));
+                    let isDistinct = true;
+                    for (const selected of palette) {
+                        const dr = color.r - selected.r;
+                        const dg = color.g - selected.g;
+                        const db = color.b - selected.b;
+                        const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+                        if (distance < minDistance) {
+                            isDistinct = false;
+                            break;
+                        }
+                    }
+
+                    if (isDistinct) {
+                        palette.push(color);
+                    }
+                }
+
+                // If we couldn't find enough distinct colors, fill with the top ones (even if similar) or duplicates
+                while (palette.length < count && colorScores.length > palette.length) {
+                    // Just take next best score ensuring it's not EXACTLY same pixel if possible, but for now just simple fill
+                    const nextBest = colorScores[palette.length];
+                    if (nextBest) palette.push(nextBest);
+                    else break;
+                }
+
+                resolve(palette.map(c => rgbToHex(c.r, c.g, c.b)));
 
             } catch (e) {
                 console.warn("Color extraction failed:", e);
-                resolve(null);
+                resolve([]);
             }
         };
 
         img.onerror = () => {
             console.warn("Image load failed");
-            resolve(null);
+            resolve([]);
         };
     });
 };
