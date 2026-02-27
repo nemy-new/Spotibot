@@ -1,6 +1,6 @@
 # Spotibot
 
-https://spotibot-psi.vercel.app/
+[https://spotibot-psi.vercel.app/](https://spotibot-sigma.vercel.app/)
 
 ## 🌟 基本機能 (Standard Mode)
 
