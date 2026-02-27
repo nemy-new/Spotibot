@@ -131,15 +131,31 @@ function App() {
     setSpotifyClientSecret(newSpotifyClientSecret);
   };
 
-  const fetchDevices = async () => {
+  const fetchDevices = async (force = false) => {
     if (loading) return; // Guard against concurrent calls
     setLoading(true);
     setError('');
+
     try {
-      const data = await switchbotApi.getDevices(token, secret);
-      const relevantDevices = (data.deviceList || []).filter(d =>
-        d.deviceType.includes('Light') || d.deviceType.includes('Bulb') || d.deviceType.includes('Strip')
-      );
+      let relevantDevices = [];
+      const cached = localStorage.getItem('switchbot_device_cache');
+      const cacheTime = localStorage.getItem('switchbot_device_cache_time');
+      const now = Date.now();
+
+      // Use cache if not forcing, cache exists, and is less than 24 hours old (86400000 ms)
+      if (!force && cached && cacheTime && (now - parseInt(cacheTime) < 86400000)) {
+        relevantDevices = JSON.parse(cached);
+        console.log("Loaded devices from cache");
+      } else {
+        console.log("Fetching devices from SwitchBot API...");
+        const data = await switchbotApi.getDevices(token, secret);
+        relevantDevices = (data.deviceList || []).filter(d =>
+          d.deviceType.includes('Light') || d.deviceType.includes('Bulb') || d.deviceType.includes('Strip')
+        );
+        // Save to cache
+        localStorage.setItem('switchbot_device_cache', JSON.stringify(relevantDevices));
+        localStorage.setItem('switchbot_device_cache_time', now.toString());
+      }
 
       setDevices(relevantDevices);
 
@@ -265,6 +281,7 @@ function App() {
                         setPickerTrigger(prev => prev + 1);
                         setShowSettings(false);
                       }}
+                      onRefreshDevices={() => fetchDevices(true)}
                     />
                   }
                 />
@@ -307,6 +324,7 @@ function App() {
               setPickerTrigger(prev => prev + 1);
               setShowSettings(false);
             }}
+            onRefreshDevices={() => fetchDevices(true)}
           />
         </div>
       )}

@@ -5,7 +5,7 @@ import { getRedirectUri } from '../lib/spotify';
 export function SettingsPanel({
     onClose, onSave, theme, onThemeChange, accentColor = '#1DB954',
     onShowTutorial, multiColorMode, onMultiColorModeChange,
-    onStartScreenSync
+    onStartScreenSync, onRefreshDevices
 }) {
     const { t, i18n } = useTranslation();
     const [token, setToken] = useState(localStorage.getItem('switchbot_token') || '');
@@ -96,6 +96,12 @@ export function SettingsPanel({
                                 <label style={{ fontSize: '11px', opacity: 0.5 }}>{t('settings.switchbot.secret')}</label>
                                 <input type="password" value={secret} onChange={e => setSecret(e.target.value)} className="input-field" placeholder="Secret" style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.2)', color: 'white', fontSize: '12px' }} />
                             </div>
+                            {onRefreshDevices && (
+                                <button className="btn-secondary" onClick={() => { handleSave(); onRefreshDevices(); }} style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.2)'} onMouseLeave={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>refresh</span>
+                                    {t('settings.switchbot.refresh') || "Refresh Devices"}
+                                </button>
+                            )}
                         </div>
 
                         {/* Spotify Config */}
